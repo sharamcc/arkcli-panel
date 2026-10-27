@@ -3,6 +3,7 @@ dist/
 *.log
 .env
 .env.*
+!.env.example
 
 # 子账户凭证（含 AK/SK/API Key），禁止入库
 configs/accounts/*.json

@@ -8,27 +8,29 @@ BytePlus Ark 多子账户用量与接入点面板。只读工具，用 AK/SK 直
 
 - **用量**：账户级汇总、逐日柱状图、按接入点 / 按模型拆分
 - **接入点**：列表、筛选、详情（只读，不含启停/删除）
-- **账户**：新增、编辑、删除、凭证验证（写操作仅限本机）
+- **账户**：新增、编辑、删除、凭证验证（写操作来源由 `PANEL_WRITE_CIDRS` 控制）
 - **刷新**：5 分钟自动轮询，页面隐藏时暂停，可手动刷新
 
 ## 安全模型（使用前先读）
 
 这个工具处理 AK/SK，并且**没有登录认证**。默认行为如下，请勿在未理解的情况下改动：
 
-| 项         | 默认行为                                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------- |
-| 监听地址   | `127.0.0.1`，仅本机可访问                                                                                     |
-| 局域网访问 | 需显式设置 `PANEL_HOST=0.0.0.0`。开启后同网段任何人都能查看全部账户的用量与接入点                             |
-| 写操作     | 新增/修改/删除账户仅接受来自 `127.0.0.1` 的请求，其他来源返回 403                                             |
-| 凭证存储   | AK/SK 以明文 JSON 存于 `configs/accounts/*.json`，已被 `.gitignore` 排除                                      |
-| Ark 调用   | 只读 Action 白名单：`GetInferenceUsage`、`ListEndpoints`、`GetEndpoint`、`ListFoundationModels`；其余一律拒绝 |
-| 凭证回显   | 接口与界面只返回掩码 AK，SK 永不返回                                                                          |
+| 项         | 默认行为                                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 监听地址   | 容器内 `0.0.0.0`，仅 nginx 发布 `HOST_PORT`（默认 80）；直接运行 Node 时默认 `127.0.0.1`                                                             |
+| 局域网访问 | Docker 部署默认对局域网开放；直接运行 Node 需显式设置 `PANEL_HOST=0.0.0.0`。开启后同网段任何人都能查看全部账户的用量与接入点                         |
+| 写操作     | 仅接受 `PANEL_WRITE_CIDRS` 白名单内的来源，默认 `127.0.0.1/32,::1/128,192.168.9.0/24`，其他来源返回 403                                              |
+| 反代信任   | 仅当来源属于 `PANEL_TRUSTED_PROXIES`（compose 内默认 `172.28.0.0/24`，可用 `PANEL_SUBNET` 覆盖）时才采信 `X-Forwarded-For`；直连运行只认 socket 地址 |
+| 凭证存储   | AK/SK 以明文 JSON 存于 `configs/accounts/*.json`，已被 `.gitignore` 排除                                                                             |
+| Ark 调用   | 只读 Action 白名单：`GetInferenceUsage`、`ListEndpoints`、`GetEndpoint`、`ListFoundationModels`；其余一律拒绝                                        |
+| 凭证回显   | 接口与界面只返回掩码 AK，SK 永不返回                                                                                                                 |
 
-**不要**把 `PANEL_HOST=0.0.0.0` 的服务暴露到公网或不可信网络。若需要局域网访问，建议配合反向代理与口令，或使用 Tailscale 等私有网络。
+**不要**把服务暴露到公网或不可信网络。`PANEL_WRITE_CIDRS=0.0.0.0/0` 会放行所有 IPv4 来源，只有在确认端口未暴露到公网时才可使用；需要更强边界时，把 compose 的端口映射改为 `192.168.9.211:80:80`，或改用 Tailscale 等私有网络。
 
 ## 环境要求
 
 - Node.js **>= 20.6**（`npm test` 使用 `node --import`）
+- Docker Engine + compose plugin（使用 Docker 部署时；`docker compose version` 可用）
 - BytePlus 账号、IAM 子用户的 Access Key / Secret Key
 - 该子用户需具备 Ark 只读权限（系统策略 `ArkReadOnlyAccess`），且授权范围覆盖你要查询的项目
 
@@ -53,7 +55,46 @@ npm start
 PANEL_HOST=0.0.0.0 npm start
 ```
 
-## 部署到 Linux（systemd）
+## Docker 部署（推荐）
+
+前置：Docker Engine 与 compose plugin（Ubuntu 可参考官方 apt 源安装），确认 `docker compose version` 可用。
+
+```bash
+cp .env.example .env      # 按需修改 HOST_PORT 与 PANEL_WRITE_CIDRS
+mkdir -p configs/accounts
+cp configs/accounts.example.json configs/accounts/my-account.json   # 填入 ak / sk / project
+sudo chown -R 999:990 configs
+docker compose up -d --build
+docker compose ps
+curl -s http://127.0.0.1/health
+```
+
+局域网访问 `http://<服务器IP>/`。
+
+写白名单默认是 loopback 与 `192.168.9.0/24`。经 Docker 端口映射时，在服务器上用 `127.0.0.1` 访问的来源会显示为容器网关（默认 `172.28.0.1`），写操作返回 403；请在服务器上改用 `http://192.168.9.211/`，或把网关地址加入 `PANEL_WRITE_CIDRS`。部署在其它网段时同样需调整白名单，否则局域网写操作返回 403。端口默认绑定所有网卡，公网暴露风险见「安全模型」。
+
+```bash
+docker compose logs -f app     # 后端日志
+docker compose logs -f nginx   # 反向代理日志
+docker compose down            # 停止
+docker compose up -d --build   # 升级后重建
+docker compose restart nginx   # app 容器被重建后，让 nginx 重新解析其地址
+```
+
+`configs/` 以读写方式挂载，容器以 uid 999 / gid 990 运行，首次启动前已在上面的步骤统一属主。
+
+compose 默认把 Docker 内网固定为 `172.28.0.0/24`（可用 `PANEL_SUBNET` 覆盖），app 只信任该网段的 `X-Forwarded-For`。若与其他 Docker 网络冲突（报 `Pool overlaps`），在 `.env` 中设置 `PANEL_SUBNET`（如 `172.29.0.0/24`）后执行 `docker compose down && docker compose up -d --build`。
+
+本地开发注意：macOS/Windows 的 Docker Desktop 把宿主来源 NAT 成网关地址（如 `192.168.65.1`），写操作会因不在白名单返回 403。白名单语义在 Linux 宿主部署时才保留真实客户端 IP。
+
+回退到 systemd（需已按 systemd 章节安装 unit）：
+
+```bash
+docker compose down
+sudo systemctl enable --now arkcli-panel
+```
+
+## 部署到 Linux（systemd，无 Docker 环境备选）
 
 仓库提供 [deploy/arkcli-panel.service](deploy/arkcli-panel.service)，默认安装到 `/opt/arkcli-panel`，以专用系统账户 `arkcli` 运行并监听 `127.0.0.1:3000`。
 
@@ -151,9 +192,9 @@ sudo systemctl restart arkcli-panel
 | 方法   | 路径                         | 说明                                                              | 来源限制 |
 | ------ | ---------------------------- | ----------------------------------------------------------------- | -------- |
 | GET    | `/api/accounts`              | 账户列表（AK 掩码）                                               | 全部     |
-| POST   | `/api/accounts`              | 新增账户                                                          | 仅本机   |
-| PUT    | `/api/accounts/:name`        | 更新账户（`sk` 留空表示不改）                                     | 仅本机   |
-| DELETE | `/api/accounts/:name`        | 删除账户                                                          | 仅本机   |
+| POST   | `/api/accounts`              | 新增账户                                                          | 白名单   |
+| PUT    | `/api/accounts/:name`        | 更新账户（`sk` 留空表示不改）                                     | 白名单   |
+| DELETE | `/api/accounts/:name`        | 删除账户                                                          | 白名单   |
 | GET    | `/api/accounts/:name/verify` | 用 `ListEndpoints(PageSize=1)` 验证凭证与项目权限                 | 全部     |
 | GET    | `/api/usage`                 | 多账户用量汇总，参数 `start`/`end`/`interval`/`account`/`project` | 全部     |
 | GET    | `/api/usage/breakdown`       | 单账户接入点/模型明细，参数 `account`/`start`/`end`               | 全部     |
@@ -161,9 +202,11 @@ sudo systemctl restart arkcli-panel
 | GET    | `/api/endpoints/:id`         | 接入点详情                                                        | 全部     |
 | GET    | `/api/models`                | 基础模型列表（当前未接入界面）                                    | 全部     |
 | GET    | `/api/settings`              | 当前面板语言（`zh` / `en`）                                       | 全部     |
-| POST   | `/api/settings/language`     | 切换面板语言，请求体 `{ "lang": "zh" \| "en" }`                   | 仅本机   |
+| POST   | `/api/settings/language`     | 切换面板语言，请求体 `{ "lang": "zh" \| "en" }`                   | 白名单   |
 
 响应统一为 `{ success, data, error? }`。
+
+来源限制「白名单」表示请求来源必须落在 `PANEL_WRITE_CIDRS` 内；默认 `127.0.0.1/32,::1/128,192.168.9.0/24`。
 
 ## 已知限制
 

@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      PANEL_WRITE_CIDRS: ${PANEL_WRITE_CIDRS:-}
+      PANEL_TRUSTED_PROXIES: ${PANEL_SUBNET:-172.28.0.0/24}
+    volumes:
+      - ./configs:/app/configs
+    expose:
+      - '3000'
+    networks:
+      - panel
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '${HOST_PORT:-80}:80'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - panel
+
+networks:
+  panel:
+    ipam:
+      config:
+        - subnet: ${PANEL_SUBNET:-172.28.0.0/24}

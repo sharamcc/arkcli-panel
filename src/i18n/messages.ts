@@ -16,6 +16,10 @@ const MESSAGES: Record<string, Record<Lang, string>> = {
     zh: 'web/dist 不存在，仅提供 API。先运行 npm run build 生成前端产物。',
     en: 'web/dist is missing; serving API only. Run npm run build to generate the frontend.',
   },
+  'server.invalidWriteCidrs': {
+    zh: '写来源配置 PANEL_WRITE_CIDRS 非法：{value}（{message}）',
+    en: 'Invalid PANEL_WRITE_CIDRS: {value} ({message})',
+  },
   'server.listening': {
     zh: 'arkcli-panel 已启动: http://{host}:{port}',
     en: 'arkcli-panel listening on http://{host}:{port}',

@@ -53,3 +53,36 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-24.04
+    needs: check
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build -t arkcli-panel:ci .
+
+      - name: Validate compose file
+        run: docker compose config
+
+      - name: Smoke test
+        run: |
+          sudo chown -R 999:990 configs
+          HOST_PORT=18080 docker compose up -d --build --wait --wait-timeout 120
+          curl -fsS http://127.0.0.1:18080/health
+          docker compose exec -T nginx sh -c "wget -q -O - --header='Content-Type: application/json' --post-data='{\"lang\":\"zh\"}' http://127.0.0.1/api/settings/language"
+
+      - name: Logs
+        if: always()
+        run: |
+          docker compose ps -a
+          docker compose logs --tail=200 --no-color
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

@@ -8,27 +8,29 @@ A read-only multi-sub-account usage and endpoint panel for BytePlus Ark. It sign
 
 - **Usage**: account-level totals, daily bar chart, breakdown by endpoint / by model
 - **Endpoints**: list, filter, detail (read-only, no start/stop/delete)
-- **Accounts**: create, edit, delete, credential verification (writes are local-only)
+- **Accounts**: create, edit, delete, credential verification (write sources controlled by `PANEL_WRITE_CIDRS`)
 - **Refresh**: polls every 5 minutes, pauses when the page is hidden, manual refresh available
 
 ## Security model (read before use)
 
 This tool handles AK/SK and has **no login authentication**. Defaults are listed below — do not change them without understanding the consequences:
 
-| Item             | Default behavior                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Listen address   | `127.0.0.1`, local machine only                                                                                                      |
-| LAN access       | Requires explicit `PANEL_HOST=0.0.0.0`. Once enabled, anyone on the same network can see usage and endpoints of every account        |
-| Write operations | Creating/updating/deleting accounts only accepts requests from `127.0.0.1`; other sources get 403                                    |
-| Credential store | AK/SK stored as plaintext JSON in `configs/accounts/*.json`, excluded by `.gitignore`                                                |
-| Ark calls        | Read-only action allowlist: `GetInferenceUsage`, `ListEndpoints`, `GetEndpoint`, `ListFoundationModels`; everything else is rejected |
-| Credential echo  | APIs and UI only return a masked AK; the SK is never returned                                                                        |
+| Item             | Default behavior                                                                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Listen address   | `0.0.0.0` inside the container; only nginx publishes `HOST_PORT` (80 by default). Plain `node` defaults to `127.0.0.1`                                                                         |
+| LAN access       | Open to the LAN in Docker mode; plain `node` needs `PANEL_HOST=0.0.0.0`. Anyone on the same network can read usage and endpoints                                                               |
+| Write operations | Only sources inside `PANEL_WRITE_CIDRS` may write; default `127.0.0.1/32,::1/128,192.168.9.0/24`, other sources get 403                                                                        |
+| Proxy trust      | `X-Forwarded-For` is honored only when the peer is inside `PANEL_TRUSTED_PROXIES` (defaults to `172.28.0.0/24`, overridable via `PANEL_SUBNET`, in compose); plain runs use the socket address |
+| Credential store | AK/SK stored as plaintext JSON in `configs/accounts/*.json`, excluded by `.gitignore`                                                                                                          |
+| Ark calls        | Read-only action allowlist: `GetInferenceUsage`, `ListEndpoints`, `GetEndpoint`, `ListFoundationModels`; everything else is rejected                                                           |
+| Credential echo  | APIs and UI only return a masked AK; the SK is never returned                                                                                                                                  |
 
-**Do not** expose a `PANEL_HOST=0.0.0.0` instance to the public internet or untrusted networks. For LAN access, put it behind a reverse proxy with a password, or use a private network such as Tailscale.
+**Do not** expose the service to the public internet or untrusted networks. `PANEL_WRITE_CIDRS=0.0.0.0/0` allows every IPv4 source; use it only when the port is not reachable from the internet. For a tighter boundary, bind compose to a LAN address such as `192.168.9.211:80:80`, or use a private network such as Tailscale.
 
 ## Requirements
 
 - Node.js **>= 20.6** (`npm test` uses `node --import`)
+- Docker Engine + compose plugin (for Docker deployment; `docker compose version` must work)
 - A BytePlus account and an IAM sub-user Access Key / Secret Key
 - The sub-user must have Ark read-only permissions (system policy `ArkReadOnlyAccess`), scoped to the projects you want to query
 
@@ -53,7 +55,46 @@ LAN access:
 PANEL_HOST=0.0.0.0 npm start
 ```
 
-## Deploy on Linux (systemd)
+## Docker deployment (recommended)
+
+Requires Docker Engine and the compose plugin (on Ubuntu, use Docker's official apt repository); `docker compose version` must work.
+
+```bash
+cp .env.example .env      # adjust HOST_PORT and PANEL_WRITE_CIDRS as needed
+mkdir -p configs/accounts
+cp configs/accounts.example.json configs/accounts/my-account.json   # fill in ak / sk / project
+sudo chown -R 999:990 configs
+docker compose up -d --build
+docker compose ps
+curl -s http://127.0.0.1/health
+```
+
+LAN access: `http://<server-ip>/`.
+
+The write allowlist defaults to loopback plus `192.168.9.0/24`. With Docker port mapping, requests from `127.0.0.1` on the server appear as the container gateway (default `172.28.0.1`) and get 403; use `http://192.168.9.211/` on the server instead, or add the gateway to `PANEL_WRITE_CIDRS`. On other subnets adjust `PANEL_WRITE_CIDRS` as well, otherwise LAN writes return 403. The port is bound to all interfaces by default — see the security model for public exposure risks.
+
+```bash
+docker compose logs -f app     # app logs
+docker compose logs -f nginx   # reverse proxy logs
+docker compose down            # stop
+docker compose up -d --build   # rebuild after upgrade
+docker compose restart nginx   # re-resolve the app container after it is recreated
+```
+
+`configs/` is mounted read-write and the container runs as uid 999 / gid 990; the step above sets the owner before the first start.
+
+Compose defaults to `172.28.0.0/24` for the Docker subnet, overridable via `PANEL_SUBNET`, and only trusts `X-Forwarded-For` from it. If it clashes with another Docker network (`Pool overlaps`), set `PANEL_SUBNET` in `.env` (for example `172.29.0.0/24`) and run `docker compose down && docker compose up -d --build`.
+
+Local development note: Docker Desktop on macOS/Windows NATs the host source to a gateway address (for example `192.168.65.1`), so write requests return 403. Real client IPs are preserved only when deployed on a Linux host.
+
+Roll back to systemd (requires the systemd unit from the systemd section to be installed):
+
+```bash
+docker compose down
+sudo systemctl enable --now arkcli-panel
+```
+
+## Deploy on Linux (systemd, fallback without Docker)
 
 The repo ships [deploy/arkcli-panel.service](deploy/arkcli-panel.service). It installs to `/opt/arkcli-panel`, runs as the dedicated `arkcli` system account, and listens on `127.0.0.1:3000`.
 
@@ -151,9 +192,9 @@ Path: `configs/accounts/<name>.json`. **The file name must match the `name` fiel
 | Method | Path                         | Description                                                                      | Source restriction |
 | ------ | ---------------------------- | -------------------------------------------------------------------------------- | ------------------ |
 | GET    | `/api/accounts`              | Account list (masked AK)                                                         | All                |
-| POST   | `/api/accounts`              | Create account                                                                   | Local only         |
-| PUT    | `/api/accounts/:name`        | Update account (empty `sk` means unchanged)                                      | Local only         |
-| DELETE | `/api/accounts/:name`        | Delete account                                                                   | Local only         |
+| POST   | `/api/accounts`              | Create account                                                                   | Allowlist          |
+| PUT    | `/api/accounts/:name`        | Update account (empty `sk` means unchanged)                                      | Allowlist          |
+| DELETE | `/api/accounts/:name`        | Delete account                                                                   | Allowlist          |
 | GET    | `/api/accounts/:name/verify` | Verify credentials and project permission with `ListEndpoints(PageSize=1)`       | All                |
 | GET    | `/api/usage`                 | Multi-account usage summary; params `start`/`end`/`interval`/`account`/`project` | All                |
 | GET    | `/api/usage/breakdown`       | Per-account endpoint/model breakdown; params `account`/`start`/`end`             | All                |
@@ -161,9 +202,11 @@ Path: `configs/accounts/<name>.json`. **The file name must match the `name` fiel
 | GET    | `/api/endpoints/:id`         | Endpoint detail                                                                  | All                |
 | GET    | `/api/models`                | Foundation model list (not wired into the UI yet)                                | All                |
 | GET    | `/api/settings`              | Current panel language (`zh` / `en`)                                             | All                |
-| POST   | `/api/settings/language`     | Update panel language; body `{ "lang": "zh" \| "en" }`                           | Local only         |
+| POST   | `/api/settings/language`     | Update panel language; body `{ "lang": "zh" \| "en" }`                           | Allowlist          |
 
 All responses share the shape `{ success, data, error? }`.
+
+`Allowlist` means the request source must fall inside `PANEL_WRITE_CIDRS`; default `127.0.0.1/32,::1/128,192.168.9.0/24`.
 
 ## Known limitations
 

@@ -9,18 +9,33 @@ import { endpointRoutes } from './routes/endpoints.js';
 import { modelRoutes } from './routes/models.js';
 import { settingsRoutes } from './routes/settings.js';
 import { tm } from './i18n/messages.js';
+import { buildWriteList, DEFAULT_WRITE_CIDRS, isWriteAllowed } from './config/write-allow.js';
 
-// 写操作仅允许本机访问：无认证前提下，避免局域网内他人篡改账户配置
-const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+const app = Fastify({
+  logger: true,
+  // 仅当显式配置可信代理网段时才采信 X-Forwarded-For；直连运行默认只认 socket 地址
+  trustProxy: process.env.PANEL_TRUSTED_PROXIES?.trim() || false,
+});
 
-const app = Fastify({ logger: true });
+// 写操作来源白名单：默认本机 + 内网段，PANEL_WRITE_CIDRS 可整体替换（0.0.0.0/0 放行所有 IPv4）
+const writeCidrs = process.env.PANEL_WRITE_CIDRS?.trim() || DEFAULT_WRITE_CIDRS;
+const writeList = (() => {
+  try {
+    return buildWriteList(writeCidrs);
+  } catch (err) {
+    app.log.error(
+      tm('server.invalidWriteCidrs', { value: writeCidrs, message: (err as Error).message }),
+    );
+    process.exit(1);
+  }
+})();
 
 app.addHook('onRequest', async (request, reply) => {
   if (request.method === 'GET' || request.method === 'HEAD') return;
-  if (!LOOPBACK.has(request.ip)) {
+  if (!isWriteAllowed(writeList, request.ip)) {
     return reply
       .status(403)
-      .send({ success: false, code: 'write.local_only', error: '写操作仅允许本机访问' });
+      .send({ success: false, code: 'write.local_only', error: '写操作来源不在允许范围内' });
   }
 });
 
