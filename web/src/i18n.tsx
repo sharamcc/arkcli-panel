@@ -364,6 +364,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // 忽略写入失败
     }
+    // 让后端日志与配置校验警告跟随面板语言；局域网访问时写接口会 403，忽略即可
+    fetch('/api/settings/language', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lang }),
+    }).catch(() => {
+      // 同步失败不影响界面
+    });
   }, [lang]);
 
   const value = useMemo<I18nContextValue>(() => {

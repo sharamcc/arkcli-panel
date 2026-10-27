@@ -6,6 +6,7 @@ dist/
 
 # 子账户凭证（含 AK/SK/API Key），禁止入库
 configs/accounts/*.json
+configs/settings.json
 !configs/accounts.example.json
 
 # OS / editor

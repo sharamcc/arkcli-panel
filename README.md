@@ -1,5 +1,7 @@
 # arkcli-panel
 
+中文 | [English](README.en.md)
+
 [![CI](https://github.com/sharamcc/arkcli-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/sharamcc/arkcli-panel/actions/workflows/ci.yml)
 
 BytePlus Ark 多子账户用量与接入点面板。只读工具，用 AK/SK 直接签名调用 Ark 控制平面，不依赖 `arkcli` CLI，也不使用浏览器 SSO。
@@ -79,6 +81,8 @@ PANEL_HOST=0.0.0.0 npm start
 | GET    | `/api/endpoints`             | 接入点列表，支持 `account`/`status`/`name` 筛选                   | 全部     |
 | GET    | `/api/endpoints/:id`         | 接入点详情                                                        | 全部     |
 | GET    | `/api/models`                | 基础模型列表（当前未接入界面）                                    | 全部     |
+| GET    | `/api/settings`              | 当前面板语言（`zh` / `en`）                                       | 全部     |
+| POST   | `/api/settings/language`     | 切换面板语言，请求体 `{ "lang": "zh" \| "en" }`                   | 仅本机   |
 
 响应统一为 `{ success, data, error? }`。
 
@@ -88,7 +92,7 @@ PANEL_HOST=0.0.0.0 npm start
 - **用量有 5–30 分钟延迟**，页面显示的「更新于」是本次查询时间，不是数据产生时间。
 - **`/api/models` 在项目级授权下不可用**：`ListFoundationModels` 没有 `ProjectName` 参数，只能按 `project/*` 鉴权。需要账号级只读权限才能使用，目前界面未接入。
 - **不保存历史数据**：没有数据库，趋势直接查询 Ark 的历史区间。
-- **界面与文档为中文**。
+- **界面支持中文 / 英文**：侧栏底部切换，选择会被持久化，并同步决定后端日志与配置校验警告的语言。
 
 ## 开发
 

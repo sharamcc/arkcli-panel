@@ -7,6 +7,8 @@ import { usageRoutes } from './routes/usage.js';
 import { usageBreakdownRoutes } from './routes/usage-breakdown.js';
 import { endpointRoutes } from './routes/endpoints.js';
 import { modelRoutes } from './routes/models.js';
+import { settingsRoutes } from './routes/settings.js';
+import { tm } from './i18n/messages.js';
 
 // 写操作仅允许本机访问：无认证前提下，避免局域网内他人篡改账户配置
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
@@ -27,6 +29,7 @@ app.register(usageRoutes);
 app.register(usageBreakdownRoutes);
 app.register(endpointRoutes);
 app.register(modelRoutes);
+app.register(settingsRoutes);
 
 app.get('/health', async () => ({ status: 'ok' }));
 
@@ -41,7 +44,7 @@ if (fs.existsSync(webDist)) {
     return reply.sendFile('index.html');
   });
 } else {
-  app.log.warn('web/dist 不存在，仅提供 API。先运行 npm run build 生成前端产物。');
+  app.log.warn(tm('server.webDistMissing'));
 }
 
 const port = Number(process.env.PORT ?? 3000);
@@ -50,7 +53,7 @@ const host = process.env.PANEL_HOST ?? '127.0.0.1';
 
 try {
   await app.listen({ port, host });
-  app.log.info(`arkcli-panel listening on http://${host}:${port}`);
+  app.log.info(tm('server.listening', { host, port }));
 } catch (err) {
   app.log.error(err);
   process.exit(1);

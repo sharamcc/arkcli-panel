@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { AccountConfig, AccountConfigSchema, AccountView } from '../types/account.js';
+import { tm } from '../i18n/messages.js';
 
 export const ACCOUNTS_DIR = path.resolve(process.cwd(), 'configs', 'accounts');
 
@@ -21,13 +22,13 @@ function readAccountFile(file: string): AccountConfig | null {
     const expectedName = file.replace(/\.json$/, '');
     if (validated.name !== expectedName) {
       console.warn(
-        `[config] ${file}: name "${validated.name}" 与文件名 "${expectedName}" 不一致，已跳过`,
+        tm('config.nameMismatch', { file, name: validated.name, expected: expectedName }),
       );
       return null;
     }
     return validated;
   } catch (err) {
-    console.warn(`[config] 解析 ${file} 失败: ${(err as Error).message}`);
+    console.warn(tm('config.parseFailed', { file, message: (err as Error).message }));
     return null;
   }
 }
