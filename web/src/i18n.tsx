@@ -48,7 +48,7 @@ const zh: Dict = {
   'error.account_exists': 'Account already exists',
   'error.usage_too_long': 'Ark limits the range to under 31 days',
   'error.usage_invalid_range': 'End date cannot be earlier than start date',
-  'error.write_local_only': 'Write operations are limited to this machine',
+  'error.write_local_only': 'Write operations are not allowed from this source',
   'error.breakdown_fallback_limit': 'Too many endpoints to split without the endpoint column',
   'error.not_found': 'Not found',
 
@@ -211,7 +211,7 @@ const en: Dict = {
   'error.account_exists': 'Account already exists',
   'error.usage_too_long': 'Ark limits the range to under 31 days',
   'error.usage_invalid_range': 'End date cannot be earlier than start date',
-  'error.write_local_only': 'Write operations are limited to this machine',
+  'error.write_local_only': 'Write operations are not allowed from this source',
   'error.breakdown_fallback_limit': 'Too many endpoints to split without the endpoint column',
   'error.not_found': 'Not found',
 
