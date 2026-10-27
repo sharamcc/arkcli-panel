@@ -104,7 +104,7 @@ npm test        # 聚合逻辑单元测试（node:test，无需额外依赖）
 
 ## 获取 API Key
 
-官方渠道直供 BytePlus API Key。Seedance 2.0 mini / fast 版本正限时折扣中。欢迎私信 TG [@callxyabc_bot](https://t.me/callxyabc_bot) 咨询。
+第三方渠道直供 BytePlus API Key。Seedance 2.0 mini / fast 版本正限时折扣中。欢迎私信 TG [@callxyabc_bot](https://t.me/callxyabc_bot) 咨询。
 
 仅认 `@callxyabc_bot` 这个 handle，其他相似用户名均为仿冒。
 
