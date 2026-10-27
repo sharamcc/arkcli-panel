@@ -71,7 +71,7 @@ curl -s http://127.0.0.1/health
 
 LAN access: `http://<server-ip>/`.
 
-The write allowlist defaults to loopback plus `192.168.9.0/24`; on other subnets adjust `PANEL_WRITE_CIDRS` in `.env`, otherwise LAN write requests return 403. The port is bound to all interfaces by default — see the security model for public exposure risks.
+The write allowlist defaults to loopback plus `192.168.9.0/24`. With Docker port mapping, requests from `127.0.0.1` on the server appear as the container gateway (default `172.28.0.1`) and get 403; use `http://192.168.9.211/` on the server instead, or add the gateway to `PANEL_WRITE_CIDRS`. On other subnets adjust `PANEL_WRITE_CIDRS` as well, otherwise LAN writes return 403. The port is bound to all interfaces by default — see the security model for public exposure risks.
 
 ```bash
 docker compose logs -f app     # app logs
