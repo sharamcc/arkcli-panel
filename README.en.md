@@ -78,6 +78,7 @@ docker compose logs -f app     # app logs
 docker compose logs -f nginx   # reverse proxy logs
 docker compose down            # stop
 docker compose up -d --build   # rebuild after upgrade
+docker compose restart nginx   # re-resolve the app container after it is recreated
 ```
 
 `configs/` is mounted read-write and the container runs as uid 999 / gid 990; the step above sets the owner before the first start.

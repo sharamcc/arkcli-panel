@@ -78,6 +78,7 @@ docker compose logs -f app     # 后端日志
 docker compose logs -f nginx   # 反向代理日志
 docker compose down            # 停止
 docker compose up -d --build   # 升级后重建
+docker compose restart nginx   # app 容器被重建后，让 nginx 重新解析其地址
 ```
 
 `configs/` 以读写方式挂载，容器以 uid 999 / gid 990 运行，首次启动前已在上面的步骤统一属主。

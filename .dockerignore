@@ -11,8 +11,8 @@ docs/
 *.log
 .env
 .env.*
-*.pem
-*.key
+**/*.pem
+**/*.key
 .husky/
 deploy/
 .DS_Store
