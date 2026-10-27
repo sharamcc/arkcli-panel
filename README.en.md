@@ -53,6 +53,69 @@ LAN access:
 PANEL_HOST=0.0.0.0 npm start
 ```
 
+## Deploy on Linux (systemd)
+
+The repo ships [deploy/arkcli-panel.service](deploy/arkcli-panel.service). It installs to `/opt/arkcli-panel`, runs as the dedicated `arkcli` system account, and listens on `127.0.0.1:3000`.
+
+1. Install Node.js **>= 20.6** and check the node path:
+
+```bash
+command -v node    # usually /usr/bin/node
+```
+
+2. Create the service account and clone the repo:
+
+```bash
+sudo useradd --system --user-group --home /opt/arkcli-panel --shell /usr/sbin/nologin arkcli
+sudo mkdir -p /opt/arkcli-panel
+sudo chown "$USER" /opt/arkcli-panel
+git clone https://github.com/sharamcc/arkcli-panel.git /opt/arkcli-panel
+```
+
+3. Build:
+
+```bash
+cd /opt/arkcli-panel
+npm ci
+npm run build
+```
+
+4. Prepare account configs and hand `configs` to the service account (the panel writes accounts and the language setting there):
+
+```bash
+mkdir -p configs/accounts
+cp configs/accounts.example.json configs/accounts/my-account.json
+# edit configs/accounts/my-account.json: fill in ak / sk / project
+sudo chown -R arkcli:arkcli configs
+```
+
+5. Install the unit and start it. If `command -v node` is not `/usr/bin/node` (e.g. nvm), edit `ExecStart` first:
+
+```bash
+sudo cp deploy/arkcli-panel.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now arkcli-panel
+```
+
+6. Verify:
+
+```bash
+curl -s http://127.0.0.1:3000/health
+journalctl -u arkcli-panel -f
+```
+
+Upgrade:
+
+```bash
+cd /opt/arkcli-panel
+git pull --ff-only
+npm ci
+npm run build
+sudo systemctl restart arkcli-panel
+```
+
+For LAN access, change `PANEL_HOST` in the unit to `0.0.0.0` and read the security model above first. If you install somewhere other than `/opt/arkcli-panel`, adjust `WorkingDirectory` and `ReadWritePaths` as well; disable `ProtectHome` when installing under `/home`.
+
 ## Account configuration
 
 Path: `configs/accounts/<name>.json`. **The file name must match the `name` field.**

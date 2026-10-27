@@ -1,0 +1,24 @@
+[Unit]
+Description=arkcli-panel
+Documentation=https://github.com/sharamcc/arkcli-panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=arkcli
+WorkingDirectory=/opt/arkcli-panel
+ExecStart=/usr/bin/node dist/index.js
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=PANEL_HOST=127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/arkcli-panel/configs
+
+[Install]
+WantedBy=multi-user.target

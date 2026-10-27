@@ -53,6 +53,69 @@ npm start
 PANEL_HOST=0.0.0.0 npm start
 ```
 
+## 部署到 Linux（systemd）
+
+仓库提供 [deploy/arkcli-panel.service](deploy/arkcli-panel.service)，默认安装到 `/opt/arkcli-panel`，以专用系统账户 `arkcli` 运行并监听 `127.0.0.1:3000`。
+
+1. 安装 Node.js **>= 20.6**，确认 node 路径：
+
+```bash
+command -v node    # 常见为 /usr/bin/node
+```
+
+2. 创建服务账户并拉取代码：
+
+```bash
+sudo useradd --system --user-group --home /opt/arkcli-panel --shell /usr/sbin/nologin arkcli
+sudo mkdir -p /opt/arkcli-panel
+sudo chown "$USER" /opt/arkcli-panel
+git clone https://github.com/sharamcc/arkcli-panel.git /opt/arkcli-panel
+```
+
+3. 构建：
+
+```bash
+cd /opt/arkcli-panel
+npm ci
+npm run build
+```
+
+4. 准备账户配置，并把 `configs` 交给服务账户（面板写入账户与语言设置时需要）：
+
+```bash
+mkdir -p configs/accounts
+cp configs/accounts.example.json configs/accounts/my-account.json
+# 编辑 configs/accounts/my-account.json，填入 ak / sk / project
+sudo chown -R arkcli:arkcli configs
+```
+
+5. 安装 unit 并启动。若 `command -v node` 不是 `/usr/bin/node`（如 nvm），先修改 `ExecStart`：
+
+```bash
+sudo cp deploy/arkcli-panel.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now arkcli-panel
+```
+
+6. 验证：
+
+```bash
+curl -s http://127.0.0.1:3000/health
+journalctl -u arkcli-panel -f
+```
+
+升级：
+
+```bash
+cd /opt/arkcli-panel
+git pull --ff-only
+npm ci
+npm run build
+sudo systemctl restart arkcli-panel
+```
+
+需要局域网访问时，把 unit 中的 `PANEL_HOST` 改为 `0.0.0.0`，并先阅读上面的安全模型。若安装路径不是 `/opt/arkcli-panel`，需同时调整 `WorkingDirectory` 与 `ReadWritePaths`；安装在 `/home` 下时还要关闭 `ProtectHome`。
+
 ## 账户配置
 
 文件路径为 `configs/accounts/<name>.json`，**文件名必须与 `name` 字段一致**。
