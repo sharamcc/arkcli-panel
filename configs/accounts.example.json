@@ -1,0 +1,10 @@
+{
+  "name": "example-account",
+  "label": "示例账户（请复制为 <account-name>.json 并填入真实凭证）",
+  "ak": "AKAPYourAccessKeyId",
+  "sk": "YourSecretAccessKey",
+  "project": "example-account",
+  "region": "ap-southeast-1",
+  "enabled": true,
+  "note": "文件名须与 name 字段一致；project 留空时等于 name。此文件是模板，真实账户文件不会被 git 追踪。"
+}

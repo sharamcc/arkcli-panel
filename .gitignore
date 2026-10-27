@@ -1,0 +1,17 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+
+# 子账户凭证（含 AK/SK/API Key），禁止入库
+configs/accounts/*.json
+!configs/accounts.example.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# 设计 Skill 的中间产物
+.taste-skill/
