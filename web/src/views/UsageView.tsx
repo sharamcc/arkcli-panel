@@ -1,25 +1,11 @@
 import { useMemo, useState } from 'react';
-import {
-  PerAccountUsage,
-  UsageRow,
-  fetchUsage,
-  formatTokens,
-  formatTokensShort,
-  shiftDays,
-  todayString,
-} from '../api';
+import { PerAccountUsage, UsageRow, fetchUsage, shiftDays, todayString } from '../api';
 import { usePolling } from '../hooks/usePolling';
 import { DailyBars } from '../components/DailyBars';
 import { BreakdownTable } from '../components/BreakdownTable';
+import { formatShort, formatTokens, useI18n } from '../i18n';
 
 type RangeKey = 'today' | '7d' | '30d' | 'custom';
-
-const RANGES: { id: RangeKey; label: string }[] = [
-  { id: 'today', label: '今日' },
-  { id: '7d', label: '近 7 天' },
-  { id: '30d', label: '近 30 天' },
-  { id: 'custom', label: '自定义' },
-];
 
 // Ark 要求区间小于 31 天：开始与结束最多相差 30 天（含首尾共 31 天）
 const MAX_SPAN_DAYS = 30;
@@ -37,7 +23,6 @@ function sumField(rows: UsageRow[], field: string): number {
 function daysBetween(start: string, end: string): string[] {
   const out: string[] = [];
   let cursor = start;
-  // 上限防御：Ark 只接受小于 31 天的区间
   for (let i = 0; i < 31 && cursor <= end; i += 1) {
     out.push(cursor);
     cursor = shiftDays(cursor, 1);
@@ -46,6 +31,7 @@ function daysBetween(start: string, end: string): string[] {
 }
 
 export function UsageView() {
+  const { t, te, lang } = useI18n();
   const today = todayString();
   const [range, setRange] = useState<RangeKey>('7d');
   const [customStart, setCustomStart] = useState(shiftDays(today, -6));
@@ -57,7 +43,6 @@ export function UsageView() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
-  // 选定开始日期后，结束日期自动设为 31 天窗口（含首尾），且不超过今天
   const handleStartChange = (value: string) => {
     setCustomStart(value);
     const wanted = shiftDays(value, MAX_SPAN_DAYS);
@@ -65,7 +50,6 @@ export function UsageView() {
     setCustomEnd(cappedEnd < value ? value : cappedEnd);
   };
 
-  // 结束日期反向约束：早于开始则同步开始，跨度超限则前移开始
   const handleEndChange = (value: string) => {
     setCustomEnd(value);
     const diff = dayDiff(customStart, value);
@@ -94,9 +78,11 @@ export function UsageView() {
           setError(null);
         } else {
           setData([]);
-          setError(typeof res.error === 'string' ? res.error : '查询失败');
+          setError(te(res.code, res.error));
         }
-        setUpdatedAt(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
+        setUpdatedAt(
+          new Date().toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }),
+        );
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
@@ -115,7 +101,6 @@ export function UsageView() {
   const rangeToken = okAccounts.reduce((acc, a) => acc + sumField(a.usage ?? [], 'TotalTokens'), 0);
   const rangeReq = okAccounts.reduce((acc, a) => acc + sumField(a.usage ?? [], 'ReqCnt'), 0);
 
-  // 全部账户逐日合计，用于总览趋势图
   const combinedRows: UsageRow[] = days.map((day) => {
     let total = 0;
     let input = 0;
@@ -142,20 +127,28 @@ export function UsageView() {
   });
 
   const showPlaceholder = loading && data.length === 0;
-  const value = (n: number) => (showPlaceholder ? '—' : formatTokens(n));
+  const value = (n: number) => (showPlaceholder ? '—' : formatTokens(n, lang));
+
+  const ranges: { id: RangeKey; label: string }[] = [
+    { id: 'today', label: t('usage.range.today') },
+    { id: '7d', label: t('usage.range.7d') },
+    { id: '30d', label: t('usage.range.30d') },
+    { id: 'custom', label: t('usage.range.custom') },
+  ];
 
   return (
     <>
       <header className="page-head">
         <div>
-          <h1>用量</h1>
+          <h1>{t('usage.title')}</h1>
           <p className="sub">
-            {updatedAt ? `更新于 ${updatedAt} · ` : ''}数据来自 Ark，延迟 5–30 分钟
+            {updatedAt ? t('usage.updatedAt', { time: updatedAt }) : ''}
+            {t('usage.subtitle')}
           </p>
         </div>
         <div className="actions">
-          <div className="seg" role="group" aria-label="时间范围">
-            {RANGES.map((r) => (
+          <div className="seg" role="group" aria-label={t('usage.title')}>
+            {ranges.map((r) => (
               <button
                 key={r.id}
                 type="button"
@@ -167,8 +160,8 @@ export function UsageView() {
               </button>
             ))}
           </div>
-          <button type="button" className="btn btn-primary" onClick={() => setTick((t) => t + 1)}>
-            刷新
+          <button type="button" className="btn btn-primary" onClick={() => setTick((v) => v + 1)}>
+            {t('common.refresh')}
           </button>
         </div>
       </header>
@@ -178,7 +171,7 @@ export function UsageView() {
           <div className="panel-head">
             <div className="panel-tools">
               <label>
-                <span className="sub">开始</span>
+                <span className="sub">{t('usage.custom.start')}</span>
                 <input
                   className="input input-sm"
                   type="date"
@@ -188,7 +181,7 @@ export function UsageView() {
                 />
               </label>
               <label>
-                <span className="sub">结束</span>
+                <span className="sub">{t('usage.custom.end')}</span>
                 <input
                   className="input input-sm"
                   type="date"
@@ -197,9 +190,7 @@ export function UsageView() {
                   onChange={(e) => handleEndChange(e.target.value)}
                 />
               </label>
-              <span className="sub">
-                选定开始日期后自动取 31 天窗口，最长不超过 31 天（含首尾）
-              </span>
+              <span className="sub">{t('usage.custom.hint')}</span>
             </div>
           </div>
         </div>
@@ -211,59 +202,67 @@ export function UsageView() {
         </div>
       )}
 
-      <section className="kpis" aria-label="用量总览">
+      <section className="kpis" aria-label={t('usage.title')}>
         <div className="kpi">
-          <div className="kpi-label">今日 token</div>
+          <div className="kpi-label">{t('usage.kpi.today')}</div>
           <div className="kpi-value">{value(todayToken)}</div>
           <div className="kpi-note">
-            {showPlaceholder ? '正在查询' : formatTokensShort(todayToken) || '暂无数据'}
+            {showPlaceholder
+              ? t('usage.querying')
+              : formatShort(todayToken, lang) || t('usage.noData')}
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">{start === end ? start : `${start} 至 ${end}`} 合计</div>
+          <div className="kpi-label">
+            {start === end
+              ? t('usage.kpi.rangeSame', { start })
+              : t('usage.kpi.range', { start, end })}
+          </div>
           <div className="kpi-value">{value(rangeToken)}</div>
           <div className="kpi-note">
-            {showPlaceholder ? '正在查询' : formatTokensShort(rangeToken) || '暂无数据'}
+            {showPlaceholder
+              ? t('usage.querying')
+              : formatShort(rangeToken, lang) || t('usage.noData')}
           </div>
         </div>
         <div className="kpi">
-          <div className="kpi-label">账户</div>
+          <div className="kpi-label">{t('usage.kpi.accounts')}</div>
           <div className="kpi-value">
             {showPlaceholder ? '—' : `${okAccounts.length}/${data.length}`}
           </div>
           <div className="kpi-note">
-            {showPlaceholder ? '正在查询' : `区间请求 ${formatTokens(rangeReq)} 次`}
+            {showPlaceholder
+              ? t('usage.querying')
+              : t('usage.kpi.requests', { n: formatTokens(rangeReq, lang) })}
           </div>
         </div>
       </section>
 
-      <section className="panel" aria-label="全部账户逐日趋势">
+      <section className="panel" aria-label={t('usage.chart.title')}>
         <div className="panel-head">
-          <h2 className="panel-title">全部账户 · 逐日总 token</h2>
-          <span className="sub">按天合计，悬停查看输入与输出</span>
+          <h2 className="panel-title">{t('usage.chart.title')}</h2>
+          <span className="sub">{t('usage.chart.hint')}</span>
         </div>
         {showPlaceholder ? (
-          <p className="state">正在查询…</p>
+          <p className="state">{t('common.loading')}</p>
         ) : (
           <>
             <div className="chart-holder">
               <DailyBars rows={combinedRows} days={days} />
             </div>
-            {rangeToken === 0 && (
-              <p className="notice">该区间没有用量记录（Ark 只在有调用时产生数据）。</p>
-            )}
+            {rangeToken === 0 && <p className="notice">{t('usage.chart.noUsage')}</p>}
           </>
         )}
       </section>
 
-      <section className="panel" aria-label="账户用量">
+      <section className="panel" aria-label={t('usage.byAccount')}>
         <div className="panel-head">
-          <h2 className="panel-title">按账户</h2>
-          <span className="sub">点击账户查看逐日明细</span>
+          <h2 className="panel-title">{t('usage.byAccount')}</h2>
+          <span className="sub">{t('usage.clickHint')}</span>
         </div>
 
-        {loading && data.length === 0 && <p className="state">正在查询…</p>}
-        {!loading && data.length === 0 && <p className="state">还没有配置任何账户</p>}
+        {loading && data.length === 0 && <p className="state">{t('common.loading')}</p>}
+        {!loading && data.length === 0 && <p className="state">{t('usage.noAccounts')}</p>}
 
         {data.map((item) => {
           const rows = item.usage ?? [];
@@ -293,20 +292,22 @@ export function UsageView() {
                 />
                 <div className="acct-identity">
                   <div className="acct-name">{item.account}</div>
-                  <div className="sub">{item.error ? '查询失败' : `项目 ${item.project}`}</div>
+                  <div className="sub">
+                    {item.error ? t('usage.queryFailed') : `${t('common.project')} ${item.project}`}
+                  </div>
                 </div>
                 <div className="acct-nums">
                   <span className="num">
-                    <span className="num-label">今日</span>
-                    {item.error ? '—' : formatTokens(acctToday)}
+                    <span className="num-label">{t('usage.range.today')}</span>
+                    {item.error ? '—' : formatTokens(acctToday, lang)}
                   </span>
                   <span className="num">
-                    <span className="num-label">区间</span>
-                    {item.error ? '—' : formatTokens(acctRange)}
+                    <span className="num-label">{t('usage.rangeLabel')}</span>
+                    {item.error ? '—' : formatTokens(acctRange, lang)}
                   </span>
                   <span className="num">
-                    <span className="num-label">请求</span>
-                    {item.error ? '—' : formatTokens(acctReq)}
+                    <span className="num-label">{t('common.requests')}</span>
+                    {item.error ? '—' : formatTokens(acctReq, lang)}
                   </span>
                 </div>
                 <span className="chevron" aria-hidden="true">
@@ -323,14 +324,22 @@ export function UsageView() {
               {isOpen && !item.error && (
                 <div className="row-expand">
                   {rows.length === 0 ? (
-                    <p className="empty-hint">该区间没有用量记录（Ark 只在有调用时产生数据）。</p>
+                    <p className="empty-hint">{t('usage.row.noUsage')}</p>
                   ) : (
                     <>
                       <div className="chart-meta">
-                        <span>输入 {formatTokens(sumField(rows, 'InputTokens'))}</span>
-                        <span>输出 {formatTokens(sumField(rows, 'OutputTokens'))}</span>
-                        <span>缓存命中 {formatTokens(sumField(rows, 'CacheTokensHit'))}</span>
-                        <span>请求 {formatTokens(sumField(rows, 'ReqCnt'))}</span>
+                        <span>
+                          {t('common.input')} {formatTokens(sumField(rows, 'InputTokens'), lang)}
+                        </span>
+                        <span>
+                          {t('common.output')} {formatTokens(sumField(rows, 'OutputTokens'), lang)}
+                        </span>
+                        <span>
+                          {t('common.cache')} {formatTokens(sumField(rows, 'CacheTokensHit'), lang)}
+                        </span>
+                        <span>
+                          {t('common.requests')} {formatTokens(sumField(rows, 'ReqCnt'), lang)}
+                        </span>
                       </div>
                       <DailyBars rows={rows} days={days} />
                     </>
@@ -349,7 +358,7 @@ export function UsageView() {
         })}
 
         {failedAccounts.length > 0 && (
-          <p className="notice">{failedAccounts.length} 个账户未取到数据，展开可查看原因。</p>
+          <p className="notice">{t('usage.failed', { n: failedAccounts.length })}</p>
         )}
       </section>
     </>

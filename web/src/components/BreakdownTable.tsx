@@ -1,13 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import {
-  BreakdownEndpoint,
-  BreakdownResult,
-  BreakdownTotals,
-  fetchBreakdown,
-  formatTokens,
-} from '../api';
+import { BreakdownEndpoint, BreakdownResult, BreakdownTotals, fetchBreakdown } from '../api';
 import { DailyBars } from './DailyBars';
 import { CopyButton } from './CopyButton';
+import { formatTokens, useI18n } from '../i18n';
 
 type Props = {
   account: string;
@@ -29,15 +24,8 @@ function addTotals(target: BreakdownTotals, source: BreakdownTotals): void {
   target.reqCnt += source.reqCnt;
 }
 
-function statusLabel(status: string): { text: string; cls: string } {
-  if (status === 'Running') return { text: '运行中', cls: 'pill-positive' };
-  if (status === 'Stopped') return { text: '已停止', cls: 'pill-neutral' };
-  if (status === 'Scheduling') return { text: '调度中', cls: 'pill-warning' };
-  if (status === 'Abnormal') return { text: '异常', cls: 'pill-negative' };
-  return { text: '清单中不存在', cls: 'pill-neutral' };
-}
-
 export function BreakdownTable({ account, start, end, days, refreshToken }: Props) {
+  const { t, te, lang } = useI18n();
   const [data, setData] = useState<BreakdownResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +43,7 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
           setError(null);
         } else {
           setData(null);
-          setError(typeof res.error === 'string' ? res.error : '明细查询失败');
+          setError(te(res.code, res.error) || t('breakdown.failed'));
         }
       })
       .catch((err: Error) => {
@@ -67,7 +55,7 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
     return () => {
       cancelled = true;
     };
-  }, [account, start, end, refreshToken]);
+  }, [account, start, end, refreshToken, te, t]);
 
   const models = useMemo(() => {
     if (!data) return [];
@@ -76,7 +64,7 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
       { model: string; totals: BreakdownTotals; endpoints: BreakdownEndpoint[] }
     >();
     for (const ep of data.endpoints) {
-      const key = ep.model || '未知模型';
+      const key = ep.model;
       const current = map.get(key) ?? { model: key, totals: emptyTotals(), endpoints: [] };
       addTotals(current.totals, ep.totals);
       current.endpoints.push(ep);
@@ -98,15 +86,25 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
         <span className="share-fill" style={{ width: `${share(value)}%` }} />
       </span>
     ) : (
-      <span className="cell-zero">无用量</span>
+      <span className="cell-zero">{t('breakdown.noUsage')}</span>
     );
+
+  const statusLabel = (status: string) => {
+    if (status === 'Running') return { text: t('status.running'), cls: 'pill-positive' };
+    if (status === 'Stopped') return { text: t('status.stopped'), cls: 'pill-neutral' };
+    if (status === 'Scheduling') return { text: t('status.scheduling'), cls: 'pill-warning' };
+    if (status === 'Abnormal') return { text: t('status.abnormal'), cls: 'pill-negative' };
+    return { text: t('status.unknown'), cls: 'pill-neutral' };
+  };
+
+  const tokenClass = (value: number) => `num ${value === 0 ? 'cell-zero' : ''}`;
 
   return (
     <div className="breakdown">
       <div className="breakdown-head">
-        <h3 className="breakdown-title">用量明细</h3>
+        <h3 className="breakdown-title">{t('breakdown.title')}</h3>
         <div className="panel-tools">
-          <div className="seg" role="group" aria-label="明细维度">
+          <div className="seg" role="group" aria-label={t('breakdown.title')}>
             <button
               type="button"
               className={mode === 'endpoint' ? 'active' : ''}
@@ -116,7 +114,7 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                 setOpenKey(null);
               }}
             >
-              按接入点
+              {t('breakdown.byEndpoint')}
             </button>
             <button
               type="button"
@@ -127,16 +125,16 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                 setOpenKey(null);
               }}
             >
-              按模型
+              {t('breakdown.byModel')}
             </button>
           </div>
         </div>
       </div>
 
-      {loading && <p className="empty-hint">正在查询明细…</p>}
+      {loading && <p className="empty-hint">{t('breakdown.loading')}</p>}
       {error && <p className="error-line">{error}</p>}
       {!loading && !error && data && data.derived === 'per-endpoint' && (
-        <p className="empty-hint">Ark 未返回接入点维度列，本次已按接入点逐个查询。</p>
+        <p className="empty-hint">{t('breakdown.fallback')}</p>
       )}
 
       {!loading && !error && data && (
@@ -144,14 +142,16 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
           <table className="table">
             <thead>
               <tr>
-                <th>{mode === 'endpoint' ? '名称 / 接入点 ID' : '模型'}</th>
-                <th className="hide-sm">{mode === 'endpoint' ? '模型' : '接入点数'}</th>
-                <th className="num">Token</th>
-                <th className="num hide-sm">输入</th>
-                <th className="num hide-sm">输出</th>
-                <th className="num">请求</th>
-                <th>占比</th>
-                <th aria-label="展开" />
+                <th>{mode === 'endpoint' ? t('breakdown.col.name') : t('common.model')}</th>
+                <th className="hide-sm">
+                  {mode === 'endpoint' ? t('common.model') : t('breakdown.col.endpoints')}
+                </th>
+                <th className="num">{t('common.tokens')}</th>
+                <th className="num hide-sm">{t('common.input')}</th>
+                <th className="num hide-sm">{t('common.output')}</th>
+                <th className="num">{t('common.requests')}</th>
+                <th>{t('common.share')}</th>
+                <th aria-label="expand" />
               </tr>
             </thead>
             <tbody>
@@ -176,23 +176,25 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                           <strong>{ep.name}</strong>
                           <div className="row-sub">
                             {ep.endpointId}
-                            <CopyButton value={ep.endpointId} label="接入点 ID" /> ·{' '}
-                            <span className={`pill ${status.cls}`}>{status.text}</span>
+                            <CopyButton
+                              value={ep.endpointId}
+                              label={t('breakdown.col.name')}
+                            /> · <span className={`pill ${status.cls}`}>{status.text}</span>
                           </div>
                         </td>
                         <td className="hide-sm">
-                          {ep.model}
-                          {ep.model !== '未知模型' && (
-                            <CopyButton value={ep.model} label="模型名" />
-                          )}
+                          {ep.model || t('common.none')}
+                          {ep.model && <CopyButton value={ep.model} label={t('common.model')} />}
                           <div className="row-sub">{ep.modelVersion}</div>
                         </td>
-                        <td className={`num ${ep.totals.totalTokens === 0 ? 'cell-zero' : ''}`}>
-                          {formatTokens(ep.totals.totalTokens)}
+                        <td className={tokenClass(ep.totals.totalTokens)}>
+                          {formatTokens(ep.totals.totalTokens, lang)}
                         </td>
-                        <td className="num hide-sm">{formatTokens(ep.totals.inputTokens)}</td>
-                        <td className="num hide-sm">{formatTokens(ep.totals.outputTokens)}</td>
-                        <td className="num">{formatTokens(ep.totals.reqCnt)}</td>
+                        <td className="num hide-sm">{formatTokens(ep.totals.inputTokens, lang)}</td>
+                        <td className="num hide-sm">
+                          {formatTokens(ep.totals.outputTokens, lang)}
+                        </td>
+                        <td className="num">{formatTokens(ep.totals.reqCnt, lang)}</td>
                         <td>{renderShare(ep.totals.totalTokens)}</td>
                         <td className="chevron" aria-hidden="true">
                           {isOpen ? '−' : '+'}
@@ -203,12 +205,17 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                           <td colSpan={8} style={{ padding: 0 }}>
                             <div className="row-expand">
                               {ep.daily.length === 0 ? (
-                                <p className="empty-hint">该接入点在所选区间没有调用记录。</p>
+                                <p className="empty-hint">{t('breakdown.endpointNoUsage')}</p>
                               ) : (
                                 <>
                                   <div className="chart-meta">
-                                    <span>缓存命中 {formatTokens(ep.totals.cacheTokensHit)}</span>
-                                    <span>请求 {formatTokens(ep.totals.reqCnt)}</span>
+                                    <span>
+                                      {t('common.cache')}{' '}
+                                      {formatTokens(ep.totals.cacheTokensHit, lang)}
+                                    </span>
+                                    <span>
+                                      {t('common.requests')} {formatTokens(ep.totals.reqCnt, lang)}
+                                    </span>
                                   </div>
                                   <DailyBars rows={ep.daily} days={days} />
                                 </>
@@ -238,16 +245,18 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                         }}
                       >
                         <td>
-                          <strong>{m.model}</strong>
-                          {m.model !== '未知模型' && <CopyButton value={m.model} label="模型名" />}
+                          <strong>{m.model || t('common.none')}</strong>
+                          {m.model && <CopyButton value={m.model} label={t('common.model')} />}
                         </td>
-                        <td className="hide-sm cell-zero">{m.endpoints.length} 个</td>
-                        <td className={`num ${m.totals.totalTokens === 0 ? 'cell-zero' : ''}`}>
-                          {formatTokens(m.totals.totalTokens)}
+                        <td className="hide-sm cell-zero">
+                          {t('breakdown.col.count', { n: m.endpoints.length })}
                         </td>
-                        <td className="num hide-sm">{formatTokens(m.totals.inputTokens)}</td>
-                        <td className="num hide-sm">{formatTokens(m.totals.outputTokens)}</td>
-                        <td className="num">{formatTokens(m.totals.reqCnt)}</td>
+                        <td className={tokenClass(m.totals.totalTokens)}>
+                          {formatTokens(m.totals.totalTokens, lang)}
+                        </td>
+                        <td className="num hide-sm">{formatTokens(m.totals.inputTokens, lang)}</td>
+                        <td className="num hide-sm">{formatTokens(m.totals.outputTokens, lang)}</td>
+                        <td className="num">{formatTokens(m.totals.reqCnt, lang)}</td>
                         <td>{renderShare(m.totals.totalTokens)}</td>
                         <td className="chevron" aria-hidden="true">
                           {isOpen ? '−' : '+'}
@@ -262,10 +271,14 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
                               </span>
                             </td>
                             <td className="hide-sm" />
-                            <td className="num">{formatTokens(ep.totals.totalTokens)}</td>
-                            <td className="num hide-sm">{formatTokens(ep.totals.inputTokens)}</td>
-                            <td className="num hide-sm">{formatTokens(ep.totals.outputTokens)}</td>
-                            <td className="num">{formatTokens(ep.totals.reqCnt)}</td>
+                            <td className="num">{formatTokens(ep.totals.totalTokens, lang)}</td>
+                            <td className="num hide-sm">
+                              {formatTokens(ep.totals.inputTokens, lang)}
+                            </td>
+                            <td className="num hide-sm">
+                              {formatTokens(ep.totals.outputTokens, lang)}
+                            </td>
+                            <td className="num">{formatTokens(ep.totals.reqCnt, lang)}</td>
                             <td>{renderShare(ep.totals.totalTokens)}</td>
                             <td />
                           </tr>
@@ -277,23 +290,27 @@ export function BreakdownTable({ account, start, end, days, refreshToken }: Prop
               {mode === 'endpoint' && data.unattributed.totalTokens > 0 && (
                 <tr>
                   <td>
-                    <strong>未归属接入点</strong>
-                    <div className="row-sub">Ark 用量记录中未关联接入点的部分</div>
+                    <strong>{t('breakdown.unattributed')}</strong>
+                    <div className="row-sub">{t('breakdown.unattributedHint')}</div>
                   </td>
                   <td className="hide-sm">—</td>
-                  <td className="num">{formatTokens(data.unattributed.totalTokens)}</td>
-                  <td className="num hide-sm">{formatTokens(data.unattributed.inputTokens)}</td>
-                  <td className="num hide-sm">{formatTokens(data.unattributed.outputTokens)}</td>
-                  <td className="num">{formatTokens(data.unattributed.reqCnt)}</td>
+                  <td className="num">{formatTokens(data.unattributed.totalTokens, lang)}</td>
+                  <td className="num hide-sm">
+                    {formatTokens(data.unattributed.inputTokens, lang)}
+                  </td>
+                  <td className="num hide-sm">
+                    {formatTokens(data.unattributed.outputTokens, lang)}
+                  </td>
+                  <td className="num">{formatTokens(data.unattributed.reqCnt, lang)}</td>
                   <td>{renderShare(data.unattributed.totalTokens)}</td>
                   <td />
                 </tr>
               )}
 
-              {!loading && data.endpoints.length === 0 && (
+              {data.endpoints.length === 0 && (
                 <tr>
                   <td colSpan={8} className="cell-zero">
-                    该账户在此项目下没有接入点。
+                    {t('breakdown.emptyEndpoints')}
                   </td>
                 </tr>
               )}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AccountInput, AccountView, createAccount, updateAccount } from '../api';
+import { useI18n } from '../i18n';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
+  const { t, te } = useI18n();
   const [name, setName] = useState(initial?.name ?? '');
   const [label, setLabel] = useState(initial?.label ?? '');
   const [ak, setAk] = useState('');
@@ -22,15 +24,15 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
   const submit = async () => {
     setError(null);
     if (mode === 'create' && !/^[a-zA-Z0-9-]+$/.test(name)) {
-      setError('名称只允许字母、数字与短横线');
+      setError(t('form.err.name'));
       return;
     }
     if (mode === 'create' && (!ak.trim() || !sk.trim())) {
-      setError('AK 与 SK 都必须填写');
+      setError(t('form.err.akSk'));
       return;
     }
     if (mode === 'edit' && sk && !ak) {
-      setError('更换 SK 时也需要填写 AK');
+      setError(t('form.err.akForSk'));
       return;
     }
 
@@ -54,23 +56,21 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
       onSaved();
       onClose();
     } else {
-      setError(typeof res.error === 'string' ? res.error : '保存失败，请检查字段');
+      setError(te(res.code, res.error) || t('form.err.save'));
     }
   };
 
+  const title =
+    mode === 'create' ? t('form.createTitle') : t('form.editTitle', { name: initial?.name ?? '' });
+
   return (
-    <div
-      className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label={mode === 'create' ? '新增账户' : '编辑账户'}
-    >
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <div className="modal">
-        <h2>{mode === 'create' ? '新增账户' : `编辑 ${initial?.name}`}</h2>
+        <h2>{title}</h2>
 
         {mode === 'create' && (
           <div className="field">
-            <label htmlFor="acct-name">账户名称</label>
+            <label htmlFor="acct-name">{t('form.name')}</label>
             <input
               id="acct-name"
               className="input"
@@ -79,23 +79,26 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
               placeholder="gb001"
               autoComplete="off"
             />
-            <span className="hint">同时作为配置文件名，创建后不可修改</span>
+            <span className="hint">{t('form.nameHint')}</span>
           </div>
         )}
 
         <div className="field">
-          <label htmlFor="acct-label">显示名称（可选）</label>
+          <label htmlFor="acct-label">{t('form.label')}</label>
           <input
             id="acct-label"
             className="input"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="掌中云主账户"
+            placeholder={t('form.labelPlaceholder')}
           />
         </div>
 
         <div className="field">
-          <label htmlFor="acct-ak">Access Key ID{mode === 'edit' ? '（留空保持原值）' : ''}</label>
+          <label htmlFor="acct-ak">
+            {t('form.ak')}
+            {mode === 'edit' ? ` ${t('form.akKeep')}` : ''}
+          </label>
           <input
             id="acct-ak"
             className="input"
@@ -109,7 +112,8 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
 
         <div className="field">
           <label htmlFor="acct-sk">
-            Secret Access Key{mode === 'edit' ? '（留空保持原值）' : ''}
+            {t('form.sk')}
+            {mode === 'edit' ? ` ${t('form.skKeep')}` : ''}
           </label>
           <input
             id="acct-sk"
@@ -117,26 +121,26 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
             type="password"
             value={sk}
             onChange={(e) => setSk(e.target.value)}
-            placeholder={mode === 'edit' ? '不修改则留空' : ''}
+            placeholder={mode === 'edit' ? t('form.skPlaceholderKeep') : ''}
             autoComplete="new-password"
           />
-          <span className="hint">写入本机 configs/accounts 目录，不会显示在界面上</span>
+          <span className="hint">{t('form.skHint')}</span>
         </div>
 
         <div className="field">
-          <label htmlFor="acct-project">项目名（可选）</label>
+          <label htmlFor="acct-project">{t('form.project')}</label>
           <input
             id="acct-project"
             className="input"
             value={project}
             onChange={(e) => setProject(e.target.value)}
-            placeholder="留空则等于账户名称"
+            placeholder={t('form.projectPlaceholder')}
           />
-          <span className="hint">Ark 授权按项目划分，须与 IAM 授权的项目一致</span>
+          <span className="hint">{t('form.projectHint')}</span>
         </div>
 
         <div className="field">
-          <label htmlFor="acct-note">备注（可选）</label>
+          <label htmlFor="acct-note">{t('form.note')}</label>
           <input
             id="acct-note"
             className="input"
@@ -146,7 +150,7 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
         </div>
 
         <div className="field switch-row">
-          <label htmlFor="acct-enabled">启用</label>
+          <label htmlFor="acct-enabled">{t('form.enabled')}</label>
           <input
             id="acct-enabled"
             type="checkbox"
@@ -159,10 +163,10 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
 
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary" onClick={submit} disabled={saving}>
-            {saving ? '保存中…' : '保存'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>

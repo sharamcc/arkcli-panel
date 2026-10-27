@@ -16,7 +16,9 @@ const app = Fastify({ logger: true });
 app.addHook('onRequest', async (request, reply) => {
   if (request.method === 'GET' || request.method === 'HEAD') return;
   if (!LOOPBACK.has(request.ip)) {
-    return reply.status(403).send({ success: false, error: '写操作仅允许本机访问' });
+    return reply
+      .status(403)
+      .send({ success: false, code: 'write.local_only', error: '写操作仅允许本机访问' });
   }
 });
 
@@ -34,7 +36,7 @@ if (fs.existsSync(webDist)) {
   await app.register(fastifyStatic, { root: webDist });
   app.setNotFoundHandler((request, reply) => {
     if (request.url.startsWith('/api')) {
-      return reply.status(404).send({ success: false, error: '接口不存在' });
+      return reply.status(404).send({ success: false, code: 'not_found', error: '接口不存在' });
     }
     return reply.sendFile('index.html');
   });

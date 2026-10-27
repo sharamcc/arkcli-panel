@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getEndpointsAcrossAccounts } from '../service/account-service.js';
 import { getEndpoint } from '../ark/endpoint.js';
 import { loadAccounts } from '../config/loader.js';
+import { errorCodeOf } from '../types/errors.js';
 
 const listQuerySchema = z.object({
   account: z.string().optional(),
@@ -18,7 +19,9 @@ export async function endpointRoutes(app: FastifyInstance) {
   app.get('/api/endpoints', async (request, reply) => {
     const parsed = listQuerySchema.safeParse(request.query);
     if (!parsed.success) {
-      return reply.status(400).send({ success: false, error: parsed.error.flatten().fieldErrors });
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: parsed.error.flatten().fieldErrors });
     }
     const q = parsed.data;
     try {
@@ -34,7 +37,9 @@ export async function endpointRoutes(app: FastifyInstance) {
       );
       return { success: true, data };
     } catch (err) {
-      return reply.status(500).send({ success: false, error: (err as Error).message });
+      return reply
+        .status(500)
+        .send({ success: false, code: errorCodeOf(err), error: (err as Error).message });
     }
   });
 
@@ -45,17 +50,25 @@ export async function endpointRoutes(app: FastifyInstance) {
       const { id } = request.params;
       const { account } = request.query;
       if (!account) {
-        return reply.status(400).send({ success: false, error: 'query.account 必填' });
+        return reply
+          .status(400)
+          .send({ success: false, code: 'validation', error: 'query.account 必填' });
       }
       const acct = loadAccounts().find((a) => a.name === account);
       if (!acct) {
-        return reply.status(404).send({ success: false, error: `账户 "${account}" 不存在` });
+        return reply.status(404).send({
+          success: false,
+          code: 'account.not_found',
+          error: `账户 "${account}" 不存在`,
+        });
       }
       try {
         const data = await getEndpoint(acct, id);
         return { success: true, data };
       } catch (err) {
-        return reply.status(500).send({ success: false, error: (err as Error).message });
+        return reply
+          .status(500)
+          .send({ success: false, code: errorCodeOf(err), error: (err as Error).message });
       }
     },
   );

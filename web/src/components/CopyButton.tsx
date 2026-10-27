@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../i18n';
 
 // 局域网是 HTTP，navigator.clipboard 只在安全上下文可用，需要回退到 execCommand
 function legacyCopy(text: string): boolean {
@@ -43,6 +44,7 @@ type Props = {
 };
 
 export function CopyButton({ value, label }: Props) {
+  const { t } = useI18n();
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const timer = useRef<number | undefined>(undefined);
 
@@ -65,12 +67,16 @@ export function CopyButton({ value, label }: Props) {
     <button
       type="button"
       className={`copy-btn ${state === 'copied' ? 'is-copied' : ''}`}
-      aria-label={`复制${label}`}
-      title={`复制${label}`}
+      aria-label={`${t('common.copy')} ${label}`}
+      title={`${t('common.copy')} ${label}`}
       onClick={handleClick}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      {state === 'copied' ? '已复制' : state === 'failed' ? '复制失败' : '复制'}
+      {state === 'copied'
+        ? t('common.copied')
+        : state === 'failed'
+          ? t('common.copyFailed')
+          : t('common.copy')}
     </button>
   );
 }

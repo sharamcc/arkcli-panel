@@ -2,10 +2,12 @@ import { Fragment, useEffect, useState } from 'react';
 import { AccountView, listAccounts, verifyAccount } from '../api';
 import { AccountForm } from '../components/AccountForm';
 import { ConfirmDelete } from '../components/ConfirmDelete';
+import { useI18n } from '../i18n';
 
 type VerifyState = { status: 'checking' | 'ok' | 'fail'; message: string };
 
 export function AccountsView() {
+  const { t, te } = useI18n();
   const [accounts, setAccounts] = useState<AccountView[]>([]);
   const [loading, setLoading] = useState(true);
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
@@ -25,7 +27,10 @@ export function AccountsView() {
   useEffect(load, []);
 
   const runVerify = async (name: string) => {
-    setVerify((prev) => ({ ...prev, [name]: { status: 'checking', message: '验证中…' } }));
+    setVerify((prev) => ({
+      ...prev,
+      [name]: { status: 'checking', message: t('accounts.verify.checking') },
+    }));
     const res = await verifyAccount(name);
     if (res.success && res.data) {
       setVerify((prev) => ({
@@ -33,14 +38,17 @@ export function AccountsView() {
         [name]: res.data!.ok
           ? {
               status: 'ok',
-              message: `权限正常 · 项目 ${res.data!.project} · ${res.data!.total} 个接入点`,
+              message: t('accounts.verify.ok', {
+                project: res.data!.project,
+                total: res.data!.total ?? 0,
+              }),
             }
-          : { status: 'fail', message: res.data!.error ?? '验证失败' },
+          : { status: 'fail', message: t('accounts.verify.fail') },
       }));
     } else {
       setVerify((prev) => ({
         ...prev,
-        [name]: { status: 'fail', message: typeof res.error === 'string' ? res.error : '验证失败' },
+        [name]: { status: 'fail', message: te(res.code, res.error) },
       }));
     }
   };
@@ -49,33 +57,31 @@ export function AccountsView() {
     <>
       <header className="page-head">
         <div>
-          <h1>账户</h1>
-          <p className="sub">AK/SK 仅保存在本机配置文件，界面只显示掩码</p>
+          <h1>{t('accounts.title')}</h1>
+          <p className="sub">{t('accounts.subtitle')}</p>
         </div>
         <div className="actions">
           <button type="button" className="btn btn-primary" onClick={() => setFormMode('create')}>
-            新增账户
+            {t('accounts.add')}
           </button>
         </div>
       </header>
 
-      <section className="panel" aria-label="账户列表" style={{ marginTop: 0 }}>
-        {loading && accounts.length === 0 && <p className="state">正在加载…</p>}
-        {!loading && accounts.length === 0 && (
-          <p className="state">还没有账户。点击「新增账户」填入 AK/SK 与项目名。</p>
-        )}
+      <section className="panel" aria-label={t('accounts.title')} style={{ marginTop: 0 }}>
+        {loading && accounts.length === 0 && <p className="state">{t('common.loading')}</p>}
+        {!loading && accounts.length === 0 && <p className="state">{t('accounts.empty')}</p>}
 
         {accounts.length > 0 && (
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>名称</th>
-                  <th className="hide-sm">项目</th>
-                  <th>AK</th>
-                  <th>状态</th>
-                  <th className="hide-sm">备注</th>
-                  <th aria-label="操作" />
+                  <th>{t('accounts.col.name')}</th>
+                  <th className="hide-sm">{t('accounts.col.project')}</th>
+                  <th>{t('accounts.col.ak')}</th>
+                  <th>{t('accounts.col.status')}</th>
+                  <th className="hide-sm">{t('accounts.col.note')}</th>
+                  <th aria-label="actions" />
                 </tr>
               </thead>
               <tbody>
@@ -83,7 +89,7 @@ export function AccountsView() {
                   const v = verify[a.name];
                   return (
                     <Fragment key={a.name}>
-                      <tr key={a.name}>
+                      <tr>
                         <td>
                           <strong>{a.label || a.name}</strong>
                           <div className="sub">{a.name}</div>
@@ -92,10 +98,10 @@ export function AccountsView() {
                         <td className="id-cell">{a.ak_masked}</td>
                         <td>
                           <span className={`pill ${a.enabled ? 'pill-positive' : 'pill-neutral'}`}>
-                            {a.enabled ? '启用' : '停用'}
+                            {a.enabled ? t('accounts.enabled') : t('accounts.disabled')}
                           </span>
                         </td>
-                        <td className="hide-sm">{a.note || '—'}</td>
+                        <td className="hide-sm">{a.note || t('common.none')}</td>
                         <td>
                           <div
                             style={{
@@ -110,7 +116,7 @@ export function AccountsView() {
                               className="btn btn-secondary btn-small"
                               onClick={() => runVerify(a.name)}
                             >
-                              验证
+                              {t('accounts.verify')}
                             </button>
                             <button
                               type="button"
@@ -120,20 +126,20 @@ export function AccountsView() {
                                 setFormMode('edit');
                               }}
                             >
-                              编辑
+                              {t('accounts.edit')}
                             </button>
                             <button
                               type="button"
                               className="btn btn-secondary btn-small"
                               onClick={() => setDeleting(a)}
                             >
-                              删除
+                              {t('common.delete')}
                             </button>
                           </div>
                         </td>
                       </tr>
                       {v && (
-                        <tr key={`${a.name}-verify`}>
+                        <tr>
                           <td colSpan={6} style={{ paddingTop: 0 }}>
                             <span
                               className="sub"

@@ -14,11 +14,15 @@ export async function accountRoutes(app: FastifyInstance) {
   app.post('/api/accounts', async (request, reply) => {
     const parsed = CreateAccountSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({ success: false, error: parsed.error.flatten().fieldErrors });
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: parsed.error.flatten().fieldErrors });
     }
     const input = parsed.data;
     if (accountExists(input.name)) {
-      return reply.status(409).send({ success: false, error: `账户 "${input.name}" 已存在` });
+      return reply
+        .status(409)
+        .send({ success: false, code: 'account.exists', error: `账户 "${input.name}" 已存在` });
     }
     writeAccount({
       name: input.name,
@@ -38,11 +42,15 @@ export async function accountRoutes(app: FastifyInstance) {
     const { name } = request.params;
     const existing = getAccount(name);
     if (!existing) {
-      return reply.status(404).send({ success: false, error: `账户 "${name}" 不存在` });
+      return reply
+        .status(404)
+        .send({ success: false, code: 'account.not_found', error: `账户 "${name}" 不存在` });
     }
     const parsed = UpdateAccountSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.status(400).send({ success: false, error: parsed.error.flatten().fieldErrors });
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: parsed.error.flatten().fieldErrors });
     }
     const input = parsed.data;
     writeAccount({
@@ -62,7 +70,9 @@ export async function accountRoutes(app: FastifyInstance) {
   app.delete<{ Params: { name: string } }>('/api/accounts/:name', async (request, reply) => {
     const { name } = request.params;
     if (!deleteAccountFile(name)) {
-      return reply.status(404).send({ success: false, error: `账户 "${name}" 不存在` });
+      return reply
+        .status(404)
+        .send({ success: false, code: 'account.not_found', error: `账户 "${name}" 不存在` });
     }
     return { success: true, data: { name } };
   });
@@ -72,7 +82,9 @@ export async function accountRoutes(app: FastifyInstance) {
     const { name } = request.params;
     const account = getAccount(name);
     if (!account) {
-      return reply.status(404).send({ success: false, error: `账户 "${name}" 不存在` });
+      return reply
+        .status(404)
+        .send({ success: false, code: 'account.not_found', error: `账户 "${name}" 不存在` });
     }
     try {
       // 必须带上项目名：授权是按项目授予的，不传会落到 project/* 被拒

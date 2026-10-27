@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { UsageRow, formatTokens } from '../api';
+import { UsageRow } from '../api';
+import { formatTokens, useI18n } from '../i18n';
 
 type Props = {
   rows: UsageRow[];
@@ -8,6 +9,7 @@ type Props = {
 
 // 逐日柱状图：每天一根柱，唯一图表色；数值用完整千分位
 export function DailyBars({ rows, days }: Props) {
+  const { t, lang } = useI18n();
   const [hovered, setHovered] = useState<number | null>(null);
   const byDay = new Map(rows.map((r) => [String(r.Day), r]));
   const values = days.map((d) => Number(byDay.get(d)?.TotalTokens ?? 0));
@@ -25,22 +27,17 @@ export function DailyBars({ rows, days }: Props) {
   return (
     <div className="chart-block">
       <div className="chart-meta">
-        <span>每日总 token</span>
-        <span>{days.length} 天</span>
+        <span>{t('chart.title')}</span>
+        <span>{t('chart.days', { n: days.length })}</span>
       </div>
-      <svg
-        className="chart-svg"
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label="每日 token 用量柱状图"
-      >
-        {ticks.map((t, i) => {
-          const y = chartH - (t / max) * chartH;
+      <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t('chart.aria')}>
+        {ticks.map((tick, i) => {
+          const y = chartH - (tick / max) * chartH;
           return (
             <g key={i}>
               <line className="grid-line" x1={0} x2={W} y1={y} y2={y} />
               <text className="axis-text" x={2} y={Math.max(y - 4, 8)}>
-                {formatTokens(Math.round(t))}
+                {formatTokens(Math.round(tick), lang)}
               </text>
             </g>
           );
@@ -51,6 +48,13 @@ export function DailyBars({ rows, days }: Props) {
           const x = i * slot + (slot - barW) / 2;
           const y = chartH - h;
           const row = byDay.get(day);
+          const tooltip = t('chart.tooltip', {
+            day,
+            total: formatTokens(value, lang),
+            input: formatTokens(Number(row?.InputTokens ?? 0), lang),
+            output: formatTokens(Number(row?.OutputTokens ?? 0), lang),
+            requests: formatTokens(Number(row?.ReqCnt ?? 0), lang),
+          });
           return (
             <g key={day} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
               <rect
@@ -62,9 +66,7 @@ export function DailyBars({ rows, days }: Props) {
                 rx={1}
                 opacity={hovered === null || hovered === i ? 1 : 0.55}
               >
-                <title>
-                  {`${day} 总 ${formatTokens(value)} · 输入 ${formatTokens(Number(row?.InputTokens ?? 0))} · 输出 ${formatTokens(Number(row?.OutputTokens ?? 0))} · 请求 ${formatTokens(Number(row?.ReqCnt ?? 0))}`}
-                </title>
+                <title>{tooltip}</title>
               </rect>
             </g>
           );

@@ -8,30 +8,10 @@ import {
   fetchEndpoints,
   listAccounts,
 } from '../api';
-
-const STATUS_OPTIONS = ['', 'Running', 'Scheduling', 'Abnormal', 'Stopped'];
-
-function StatusPill({ status }: { status: EndpointItem['Status'] }) {
-  const cls =
-    status === 'Running'
-      ? 'pill-positive'
-      : status === 'Abnormal'
-        ? 'pill-negative'
-        : status === 'Scheduling'
-          ? 'pill-warning'
-          : 'pill-neutral';
-  const label =
-    status === 'Running'
-      ? '运行中'
-      : status === 'Stopped'
-        ? '已停止'
-        : status === 'Scheduling'
-          ? '调度中'
-          : '异常';
-  return <span className={`pill ${cls}`}>{label}</span>;
-}
+import { useI18n } from '../i18n';
 
 export function EndpointsView() {
+  const { t, te } = useI18n();
   const [accounts, setAccounts] = useState<AccountView[]>([]);
   const [account, setAccount] = useState('');
   const [status, setStatus] = useState('');
@@ -85,30 +65,48 @@ export function EndpointsView() {
       if (res.success && res.data) {
         setDetails((prev) => ({ ...prev, [key]: res.data as Record<string, unknown> }));
       } else {
-        setDetailError(typeof res.error === 'string' ? res.error : '详情获取失败');
+        setDetailError(te(res.code, res.error));
       }
     }
   };
+
+  const statusPill = (value: EndpointItem['Status']) => {
+    if (value === 'Running')
+      return <span className="pill pill-positive">{t('status.running')}</span>;
+    if (value === 'Stopped')
+      return <span className="pill pill-neutral">{t('status.stopped')}</span>;
+    if (value === 'Scheduling')
+      return <span className="pill pill-warning">{t('status.scheduling')}</span>;
+    return <span className="pill pill-negative">{t('status.abnormal')}</span>;
+  };
+
+  const statusOptions = [
+    { value: '', label: t('endpoints.allStatus') },
+    { value: 'Running', label: t('status.running') },
+    { value: 'Scheduling', label: t('status.scheduling') },
+    { value: 'Abnormal', label: t('status.abnormal') },
+    { value: 'Stopped', label: t('status.stopped') },
+  ];
 
   return (
     <>
       <header className="page-head">
         <div>
-          <h1>接入点</h1>
-          <p className="sub">只读视图 · 共 {rows.length} 个接入点</p>
+          <h1>{t('endpoints.title')}</h1>
+          <p className="sub">{t('endpoints.subtitle', { n: rows.length })}</p>
         </div>
       </header>
 
-      <section className="panel" aria-label="接入点筛选" style={{ marginTop: 0 }}>
+      <section className="panel" aria-label={t('endpoints.title')} style={{ marginTop: 0 }}>
         <div className="panel-head">
           <div className="panel-tools">
             <select
               className="select"
               value={account}
               onChange={(e) => setAccount(e.target.value)}
-              aria-label="按账户筛选"
+              aria-label={t('endpoints.allAccounts')}
             >
-              <option value="">全部账户</option>
+              <option value="">{t('endpoints.allAccounts')}</option>
               {accounts
                 .filter((a) => a.enabled)
                 .map((a) => (
@@ -121,34 +119,34 @@ export function EndpointsView() {
               className="select"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              aria-label="按状态筛选"
+              aria-label={t('endpoints.col.status')}
             >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s === '' ? '全部状态' : s}
+              {statusOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
                 </option>
               ))}
             </select>
             <input
               className="input input-sm"
-              placeholder="按名称搜索"
+              placeholder={t('endpoints.search')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              aria-label="按名称搜索"
+              aria-label={t('endpoints.search')}
             />
             <button type="button" className="btn btn-primary" onClick={load}>
-              查询
+              {t('common.query')}
             </button>
           </div>
         </div>
 
         {failed.length > 0 && (
-          <p className="notice">{failed.map((f) => `${f.account}: ${f.error}`).join('；')}</p>
+          <p className="notice">{failed.map((f) => `${f.account}: ${f.error}`).join('; ')}</p>
         )}
 
-        {loading && <p className="state">正在查询…</p>}
+        {loading && <p className="state">{t('common.loading')}</p>}
         {!loading && rows.length === 0 && failed.length === 0 && (
-          <p className="state">没有符合条件的接入点</p>
+          <p className="state">{t('endpoints.empty')}</p>
         )}
 
         {rows.length > 0 && (
@@ -156,14 +154,14 @@ export function EndpointsView() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>名称</th>
-                  <th>接入点 ID</th>
-                  <th>状态</th>
-                  <th>模型</th>
-                  <th className="hide-sm">项目</th>
-                  <th className="num hide-sm">RPM / TPM</th>
-                  <th className="hide-sm">创建时间</th>
-                  <th aria-label="展开" />
+                  <th>{t('endpoints.col.name')}</th>
+                  <th>{t('endpoints.col.id')}</th>
+                  <th>{t('endpoints.col.status')}</th>
+                  <th>{t('endpoints.col.model')}</th>
+                  <th className="hide-sm">{t('endpoints.col.project')}</th>
+                  <th className="num hide-sm">{t('endpoints.col.rate')}</th>
+                  <th className="hide-sm">{t('endpoints.col.created')}</th>
+                  <th aria-label="expand" />
                 </tr>
               </thead>
               <tbody>
@@ -178,7 +176,6 @@ export function EndpointsView() {
                   return (
                     <Fragment key={key}>
                       <tr
-                        key={key}
                         className="clickable"
                         onClick={() => toggle(key, acct, ep.Id)}
                         tabIndex={0}
@@ -195,22 +192,22 @@ export function EndpointsView() {
                         </td>
                         <td className="id-cell">
                           {ep.Id}
-                          <CopyButton value={ep.Id} label="接入点 ID" />
+                          <CopyButton value={ep.Id} label={t('endpoints.col.id')} />
                         </td>
+                        <td>{statusPill(ep.Status)}</td>
                         <td>
-                          <StatusPill status={ep.Status} />
-                        </td>
-                        <td>
-                          {modelName || '—'}
-                          {modelName && <CopyButton value={modelName} label="模型名" />}
+                          {modelName || t('common.none')}
+                          {modelName && <CopyButton value={modelName} label={t('common.model')} />}
                           <div className="sub">{modelVersion}</div>
                         </td>
                         <td className="hide-sm">{ep.ProjectName}</td>
                         <td className="num hide-sm">
-                          {ep.RateLimit ? `${ep.RateLimit.Rpm} / ${ep.RateLimit.Tpm}` : '—'}
+                          {ep.RateLimit
+                            ? `${ep.RateLimit.Rpm} / ${ep.RateLimit.Tpm}`
+                            : t('common.none')}
                         </td>
                         <td className="hide-sm">
-                          {new Date(ep.CreateTime).toLocaleString('zh-CN', { hour12: false })}
+                          {new Date(ep.CreateTime).toLocaleString(langLocale(), { hour12: false })}
                         </td>
                         <td className="chevron" aria-hidden="true">
                           {isOpen ? '−' : '+'}
@@ -226,11 +223,13 @@ export function EndpointsView() {
                             ) : (
                               <dl className="detail-grid">
                                 <div className="detail-item">
-                                  <dt>描述</dt>
-                                  <dd>{(details[key]?.Description as string) || '—'}</dd>
+                                  <dt>{t('endpoints.detail.description')}</dt>
+                                  <dd>
+                                    {(details[key]?.Description as string) || t('common.none')}
+                                  </dd>
                                 </div>
                                 <div className="detail-item">
-                                  <dt>模型类型</dt>
+                                  <dt>{t('endpoints.detail.modelType')}</dt>
                                   <dd>
                                     {String(
                                       details[key]?.EndpointModelType ?? ep.EndpointModelType,
@@ -238,33 +237,34 @@ export function EndpointsView() {
                                   </dd>
                                 </div>
                                 <div className="detail-item">
-                                  <dt>更新时间</dt>
+                                  <dt>{t('endpoints.detail.updated')}</dt>
                                   <dd>
                                     {new Date(
                                       String(details[key]?.UpdateTime ?? ep.UpdateTime),
-                                    ).toLocaleString('zh-CN', { hour12: false })}
+                                    ).toLocaleString(langLocale(), { hour12: false })}
                                   </dd>
                                 </div>
                                 <div className="detail-item">
-                                  <dt>支持版本切换</dt>
+                                  <dt>{t('endpoints.detail.rolling')}</dt>
                                   <dd>
                                     {details[key]?.SupportRolling === undefined
-                                      ? '—'
+                                      ? t('common.none')
                                       : details[key]?.SupportRolling
-                                        ? '是'
-                                        : '否'}
+                                        ? t('endpoints.yes')
+                                        : t('endpoints.no')}
                                   </dd>
                                 </div>
                                 <div className="detail-item">
-                                  <dt>标签</dt>
+                                  <dt>{t('endpoints.detail.tags')}</dt>
                                   <dd>
-                                    {(ep.Tags ?? []).map((t) => `${t.Key}=${t.Value}`).join(', ') ||
-                                      '—'}
+                                    {(ep.Tags ?? [])
+                                      .map((tag) => `${tag.Key}=${tag.Value}`)
+                                      .join(', ') || t('common.none')}
                                   </dd>
                                 </div>
                                 <div className="detail-item">
-                                  <dt>状态说明</dt>
-                                  <dd>{ep.StatusReason || '—'}</dd>
+                                  <dt>{t('endpoints.detail.statusReason')}</dt>
+                                  <dd>{ep.StatusReason || t('common.none')}</dd>
                                 </div>
                               </dl>
                             )}
@@ -281,4 +281,8 @@ export function EndpointsView() {
       </section>
     </>
   );
+}
+
+function langLocale(): string {
+  return document.documentElement.lang === 'en' ? 'en-US' : 'zh-CN';
 }

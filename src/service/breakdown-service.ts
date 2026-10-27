@@ -6,6 +6,7 @@ import {
   UsageRow,
 } from '../ark/usage.js';
 import { listEndpoints, ListEndpointItem } from '../ark/endpoint.js';
+import { AppError } from '../types/errors.js';
 
 export type Totals = {
   totalTokens: number;
@@ -91,7 +92,7 @@ function modelOf(ep: ListEndpointItem): { model: string; version: string } {
   }
   const custom = ep.ModelReference?.CustomModelId;
   if (custom) return { model: custom, version: '' };
-  return { model: '未知模型', version: '' };
+  return { model: '', version: '' };
 }
 
 export type EndpointBuckets = Map<string, { totals: Totals; rows: UsageRow[] }>;
@@ -188,7 +189,7 @@ export async function getUsageBreakdown(
 ): Promise<BreakdownResult> {
   const account = getAccount(accountName);
   if (!account) {
-    throw new Error(`账户 "${accountName}" 不存在`);
+    throw new AppError('account.not_found', `账户 "${accountName}" 不存在`);
   }
   const project = account.project ?? account.name;
 
@@ -214,7 +215,8 @@ export async function getUsageBreakdown(
   } else {
     // Ark 未返回接入点维度列时，改为逐个接入点查询
     if (items.length > FALLBACK_MAX_ENDPOINTS) {
-      throw new Error(
+      throw new AppError(
+        'breakdown.fallback_limit',
         `当前 Ark 响应未包含接入点维度，且接入点数量 ${items.length} 超过 ${FALLBACK_MAX_ENDPOINTS}，无法拆分`,
       );
     }

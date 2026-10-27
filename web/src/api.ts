@@ -77,6 +77,7 @@ export type BreakdownResult = {
 
 export type ApiEnvelope<T> = {
   success: boolean;
+  code?: string;
   data?: T;
   error?: unknown;
 };
@@ -168,17 +169,6 @@ export function deleteAccount(name: string) {
   return request<{ name: string }>(`/api/accounts/${encodeURIComponent(name)}`, {
     method: 'DELETE',
   });
-}
-
-// 数字格式化：完整千分位，附「亿/万」辅助
-export function formatTokens(value: number): string {
-  return value.toLocaleString('zh-CN');
-}
-
-export function formatTokensShort(value: number): string {
-  if (value >= 1e8) return `约 ${(value / 1e8).toFixed(2)} 亿`;
-  if (value >= 1e4) return `约 ${(value / 1e4).toFixed(1)} 万`;
-  return '';
 }
 
 export function todayString(): string {

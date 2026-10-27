@@ -200,7 +200,7 @@ test('assembleBreakdown：模型名来自基础模型、定制模型或未知', 
   assert.equal(byId.get('ep-a')?.model, 'seed-sc');
   assert.equal(byId.get('ep-a')?.modelVersion, '260628');
   assert.equal(byId.get('ep-b')?.model, 'cm-123');
-  assert.equal(byId.get('ep-c')?.model, '未知模型');
+  assert.equal(byId.get('ep-c')?.model, '');
 });
 
 test('assembleBreakdown：用量中出现清单外的接入点 ID 时仍计入总计', () => {

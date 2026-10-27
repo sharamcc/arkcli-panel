@@ -2,45 +2,64 @@ import { useState } from 'react';
 import { UsageView } from './views/UsageView';
 import { EndpointsView } from './views/EndpointsView';
 import { AccountsView } from './views/AccountsView';
+import { useI18n } from './i18n';
 
 type Tab = 'usage' | 'endpoints' | 'accounts';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'usage', label: '用量' },
-  { id: 'endpoints', label: '接入点' },
-  { id: 'accounts', label: '账户' },
-];
-
 export default function App() {
   const [tab, setTab] = useState<Tab>('usage');
+  const { t, lang, setLang } = useI18n();
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'usage', label: t('nav.usage') },
+    { id: 'endpoints', label: t('nav.endpoints') },
+    { id: 'accounts', label: t('nav.accounts') },
+  ];
 
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true" />
-          <span>Ark 账户面板</span>
+          <span>{t('app.title')}</span>
         </div>
-        <nav aria-label="主导航">
+        <nav aria-label={t('app.title')}>
           <ul className="nav">
-            {TABS.map((t) => (
-              <li key={t.id}>
+            {tabs.map((item) => (
+              <li key={item.id}>
                 <button
                   type="button"
-                  className={tab === t.id ? 'active' : ''}
-                  aria-current={tab === t.id ? 'page' : undefined}
-                  onClick={() => setTab(t.id)}
+                  className={tab === item.id ? 'active' : ''}
+                  aria-current={tab === item.id ? 'page' : undefined}
+                  onClick={() => setTab(item.id)}
                 >
-                  {t.label}
+                  {item.label}
                 </button>
               </li>
             ))}
           </ul>
         </nav>
         <div className="sidebar-foot">
-          BytePlus Ark · ap-southeast-1
-          <br />
-          数据每 5 分钟自动刷新
+          <div>{t('footer.region')}</div>
+          <div>{t('footer.refresh')}</div>
+          <div className="lang-switch" role="group" aria-label="Language">
+            <button
+              type="button"
+              className={lang === 'zh' ? 'active' : ''}
+              aria-pressed={lang === 'zh'}
+              onClick={() => setLang('zh')}
+            >
+              中文
+            </button>
+            <button
+              type="button"
+              className={lang === 'en' ? 'active' : ''}
+              aria-pressed={lang === 'en'}
+              onClick={() => setLang('en')}
+            >
+              EN
+            </button>
+          </div>
         </div>
       </aside>
       <main className="main">

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { deleteAccount } from '../api';
+import { useI18n } from '../i18n';
 
 type Props = {
   name: string;
@@ -8,13 +9,14 @@ type Props = {
 };
 
 export function ConfirmDelete({ name, onClose, onDeleted }: Props) {
+  const { t, te } = useI18n();
   const [typed, setTyped] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     if (typed !== name) {
-      setError('输入的名称不一致');
+      setError(t('delete.mismatch'));
       return;
     }
     setBusy(true);
@@ -24,19 +26,21 @@ export function ConfirmDelete({ name, onClose, onDeleted }: Props) {
       onDeleted();
       onClose();
     } else {
-      setError(typeof res.error === 'string' ? res.error : '删除失败');
+      setError(te(res.code, res.error));
     }
   };
 
+  const title = t('delete.title', { name });
+
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="删除账户确认">
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <div className="modal">
-        <h2>删除账户 {name}</h2>
+        <h2>{title}</h2>
         <p className="sub" style={{ marginBottom: 16 }}>
-          该操作会删除本地配置文件。AK/SK 无法从界面找回，需要重新到控制台生成。请输入账户名称确认。
+          {t('delete.warning')}
         </p>
         <div className="field">
-          <label htmlFor="confirm-name">账户名称</label>
+          <label htmlFor="confirm-name">{t('delete.label')}</label>
           <input
             id="confirm-name"
             className="input"
@@ -48,10 +52,10 @@ export function ConfirmDelete({ name, onClose, onDeleted }: Props) {
         {error && <p className="field-error">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
-            取消
+            {t('common.cancel')}
           </button>
           <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
-            {busy ? '删除中…' : '确认删除'}
+            {busy ? t('common.deleting') : t('common.delete')}
           </button>
         </div>
       </div>
