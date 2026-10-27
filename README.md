@@ -1,5 +1,7 @@
 # arkcli-panel
 
+[![CI](https://github.com/sharamcc/arkcli-panel/actions/workflows/ci.yml/badge.svg)](https://github.com/sharamcc/arkcli-panel/actions/workflows/ci.yml)
+
 BytePlus Ark 多子账户用量与接入点面板。只读工具，用 AK/SK 直接签名调用 Ark 控制平面，不依赖 `arkcli` CLI，也不使用浏览器 SSO。
 
 - **用量**：账户级汇总、逐日柱状图、按接入点 / 按模型拆分
@@ -104,7 +106,7 @@ npm test        # 聚合逻辑单元测试（node:test，无需额外依赖）
 
 ## 获取 API Key
 
-第三方渠道直供 BytePlus API Key。Seedance 2.0 mini / fast 版本正限时折扣中。欢迎私信 TG [@callxyabc_bot](https://t.me/callxyabc_bot) 咨询。
+直连 BytePlus API Key。Seedance 2.0 mini / fast 版本正限时折扣中。欢迎私信 TG [@callxyabc_bot](https://t.me/callxyabc_bot) 咨询。
 
 仅认 `@callxyabc_bot` 这个 handle，其他相似用户名均为仿冒。
 

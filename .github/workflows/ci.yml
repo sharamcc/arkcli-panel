@@ -11,7 +11,8 @@ permissions:
 jobs:
   check:
     name: Node ${{ matrix.node }}
-    runs-on: ubuntu-latest
+    # 固定到 24.04，避免 ubuntu-latest 迁移导致构建环境变化
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
