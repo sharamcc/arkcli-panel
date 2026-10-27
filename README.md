@@ -60,7 +60,14 @@ PANEL_HOST=0.0.0.0 npm start
 1. 安装 Node.js **>= 20.6**，确认 node 路径：
 
 ```bash
-command -v node    # 常见为 /usr/bin/node
+command -v node    # 常见为 /usr/bin/node；无输出说明未安装或不在 PATH
+```
+
+未安装时，Ubuntu/Debian 可用 NodeSource 装到 `/usr/bin/node`：
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
 ```
 
 2. 创建服务账户并拉取代码：
@@ -89,13 +96,20 @@ cp configs/accounts.example.json configs/accounts/my-account.json
 sudo chown -R arkcli:arkcli configs
 ```
 
-5. 安装 unit 并启动。若 `command -v node` 不是 `/usr/bin/node`（如 nvm），先修改 `ExecStart`：
+5. 安装 unit，把 `ExecStart` 指向实际的 node 路径，然后启动：
 
 ```bash
+NODE_BIN="$(command -v node)"
+test -x "$NODE_BIN" || { echo "node 未安装或不在 PATH"; exit 1; }
+sudo -u arkcli test -x "$NODE_BIN" || { echo "arkcli 无法执行 $NODE_BIN"; exit 1; }
 sudo cp deploy/arkcli-panel.service /etc/systemd/system/
+sudo sed -i "s|^ExecStart=.*|ExecStart=${NODE_BIN} dist/index.js|" /etc/systemd/system/arkcli-panel.service
+sudo systemd-analyze verify /etc/systemd/system/arkcli-panel.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now arkcli-panel
 ```
+
+若 node 由 nvm 安装在 `/root` 或 `/home` 下，`arkcli` 账户通常无法访问，unit 的 `ProtectHome=true` 也会阻断执行；建议改用系统级安装的 Node（如 NodeSource 的 `/usr/bin/node`）。
 
 6. 验证：
 
@@ -103,6 +117,8 @@ sudo systemctl enable --now arkcli-panel
 curl -s http://127.0.0.1:3000/health
 journalctl -u arkcli-panel -f
 ```
+
+日志出现 `status=203/EXEC` 时，表示 systemd 无法执行 `ExecStart`：核对 `command -v node`、`ls -l /opt/arkcli-panel/dist/index.js`，并用 `sudo -u arkcli test -x "$(command -v node)"` 确认服务账户可执行该 node。
 
 升级：
 

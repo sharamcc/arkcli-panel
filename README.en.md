@@ -60,7 +60,14 @@ The repo ships [deploy/arkcli-panel.service](deploy/arkcli-panel.service). It in
 1. Install Node.js **>= 20.6** and check the node path:
 
 ```bash
-command -v node    # usually /usr/bin/node
+command -v node    # usually /usr/bin/node; no output means it is missing or not in PATH
+```
+
+If it is missing, on Ubuntu/Debian use NodeSource to install it at `/usr/bin/node`:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
 ```
 
 2. Create the service account and clone the repo:
@@ -89,13 +96,20 @@ cp configs/accounts.example.json configs/accounts/my-account.json
 sudo chown -R arkcli:arkcli configs
 ```
 
-5. Install the unit and start it. If `command -v node` is not `/usr/bin/node` (e.g. nvm), edit `ExecStart` first:
+5. Install the unit, point `ExecStart` at the actual node path, then start it:
 
 ```bash
+NODE_BIN="$(command -v node)"
+test -x "$NODE_BIN" || { echo "node is not installed or not in PATH"; exit 1; }
+sudo -u arkcli test -x "$NODE_BIN" || { echo "arkcli cannot execute $NODE_BIN"; exit 1; }
 sudo cp deploy/arkcli-panel.service /etc/systemd/system/
+sudo sed -i "s|^ExecStart=.*|ExecStart=${NODE_BIN} dist/index.js|" /etc/systemd/system/arkcli-panel.service
+sudo systemd-analyze verify /etc/systemd/system/arkcli-panel.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now arkcli-panel
 ```
+
+If node is installed by nvm under `/root` or `/home`, the `arkcli` account usually cannot access it, and the unit's `ProtectHome=true` blocks execution as well; prefer a system-wide Node install (e.g. NodeSource's `/usr/bin/node`).
 
 6. Verify:
 
@@ -103,6 +117,8 @@ sudo systemctl enable --now arkcli-panel
 curl -s http://127.0.0.1:3000/health
 journalctl -u arkcli-panel -f
 ```
+
+`status=203/EXEC` means systemd cannot execute `ExecStart`: check `command -v node`, `ls -l /opt/arkcli-panel/dist/index.js`, and use `sudo -u arkcli test -x "$(command -v node)"` to confirm the service account can execute that node.
 
 Upgrade:
 
