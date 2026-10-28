@@ -6,7 +6,7 @@
 
 A read-only multi-sub-account usage and endpoint panel for BytePlus Ark. It signs requests to the Ark control plane with AK/SK directly — no `arkcli` CLI and no browser SSO.
 
-- **Usage**: account-level totals, daily bar chart, breakdown by endpoint / by model
+- **Usage**: account-level totals, daily / hourly bar charts, breakdown by endpoint / by model
 - **Endpoints**: list, filter, detail (read-only, no start/stop/delete)
 - **Accounts**: create, edit, delete, credential verification (write sources controlled by `PANEL_WRITE_CIDRS`)
 - **Refresh**: polls every 5 minutes, pauses when the page is hidden, manual refresh available
