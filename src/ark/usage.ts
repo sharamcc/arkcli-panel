@@ -46,6 +46,13 @@ export async function getUsageWithEndpointColumn(
   return fetchUsageRows(account, params, [{ Key: 'ModelEndpoint', Values: [] }]);
 }
 
+// Day 为 Ark 返回的 YYYY-MM-DD（DATE 类型），可直接按字典序比较；Hour 为 0–23，按数值比较
+export function compareUsageRows(a: UsageRow, b: UsageRow): number {
+  const day = String(a.Day ?? '').localeCompare(String(b.Day ?? ''));
+  if (day !== 0) return day;
+  return Number(a.Hour ?? 0) - Number(b.Hour ?? 0);
+}
+
 async function fetchUsageRows(
   account: AccountConfig,
   params: GetInferenceUsageParams,
@@ -87,6 +94,6 @@ async function fetchUsageRows(
   });
 
   // Ark 返回的行不保证按日期有序，图表需要稳定顺序
-  rows.sort((a, b) => String(a.Day ?? '').localeCompare(String(b.Day ?? '')));
+  rows.sort(compareUsageRows);
   return { rows, hasEndpointColumn };
 }
