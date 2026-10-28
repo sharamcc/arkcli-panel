@@ -154,10 +154,9 @@ export function EndpointsView() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>{t('endpoints.col.name')}</th>
+                  <th>{t('endpoints.col.model')}</th>
                   <th>{t('endpoints.col.id')}</th>
                   <th>{t('endpoints.col.status')}</th>
-                  <th>{t('endpoints.col.model')}</th>
                   <th className="hide-sm">{t('endpoints.col.project')}</th>
                   <th className="num hide-sm">{t('endpoints.col.rate')}</th>
                   <th className="hide-sm">{t('endpoints.col.created')}</th>
@@ -187,19 +186,15 @@ export function EndpointsView() {
                         }}
                       >
                         <td>
-                          <strong>{ep.Name}</strong>
-                          <div className="sub">{acct}</div>
+                          {modelName || t('common.none')}
+                          {modelName && <CopyButton value={modelName} label={t('common.model')} />}
+                          <div className="sub">{modelVersion}</div>
                         </td>
                         <td className="id-cell">
                           {ep.Id}
                           <CopyButton value={ep.Id} label={t('endpoints.col.id')} />
                         </td>
                         <td>{statusPill(ep.Status)}</td>
-                        <td>
-                          {modelName || t('common.none')}
-                          {modelName && <CopyButton value={modelName} label={t('common.model')} />}
-                          <div className="sub">{modelVersion}</div>
-                        </td>
                         <td className="hide-sm">{ep.ProjectName}</td>
                         <td className="num hide-sm">
                           {ep.RateLimit
@@ -215,7 +210,7 @@ export function EndpointsView() {
                       </tr>
                       {isOpen && (
                         <tr key={`${key}-detail`}>
-                          <td colSpan={8} style={{ padding: 0 }}>
+                          <td colSpan={7} style={{ padding: 0 }}>
                             {detailError ? (
                               <p className="error-line" style={{ padding: '12px 24px' }}>
                                 {detailError}
