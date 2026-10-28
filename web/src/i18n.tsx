@@ -59,6 +59,11 @@ const zh: Dict = {
   'usage.range.7d': '近 7 天',
   'usage.range.30d': '近 30 天',
   'usage.range.custom': '自定义',
+  'usage.range.3d': '近 3 天',
+  'usage.granularity.label': '统计粒度',
+  'usage.granularity.day': '日',
+  'usage.granularity.hour': '小时',
+  'usage.custom.hintHour': '小时模式最多查询 7 天（含首尾），选定开始日期后自动取 7 天窗口',
   'usage.rangeLabel': '区间',
   'usage.custom.start': '开始',
   'usage.custom.end': '结束',
@@ -72,9 +77,12 @@ const zh: Dict = {
   'usage.noData': '暂无数据',
   'usage.chart.title': '全部账户 · 逐日总 token',
   'usage.chart.hint': '按天合计，悬停查看输入与输出',
+  'usage.chart.titleHour': '全部账户 · 逐小时总 token',
+  'usage.chart.hintHour': '按 Ark 返回的小时合计，未做时区换算；悬停查看输入与输出',
   'usage.chart.noUsage': '该区间没有用量记录（Ark 只在有调用时产生数据）。',
   'usage.byAccount': '按账户',
   'usage.clickHint': '点击账户查看逐日明细',
+  'usage.clickHintHour': '点击账户查看逐小时明细',
   'usage.noAccounts': '还没有配置任何账户',
   'usage.queryFailed': '查询失败',
   'usage.row.noUsage': '该区间没有用量记录（Ark 只在有调用时产生数据）。',
@@ -166,6 +174,9 @@ const zh: Dict = {
   'chart.title': '每日总 token',
   'chart.days': '{n} 天',
   'chart.tooltip': '{day} 总 {total} · 输入 {input} · 输出 {output} · 请求 {requests}',
+  'chart.titleHour': '每小时总 token',
+  'chart.hours': '{n} 小时',
+  'chart.ariaHour': '每小时 token 用量柱状图',
 };
 
 const en: Dict = {
@@ -221,6 +232,12 @@ const en: Dict = {
   'usage.range.7d': 'Last 7 days',
   'usage.range.30d': 'Last 30 days',
   'usage.range.custom': 'Custom',
+  'usage.range.3d': 'Last 3 days',
+  'usage.granularity.label': 'Granularity',
+  'usage.granularity.day': 'Day',
+  'usage.granularity.hour': 'Hour',
+  'usage.custom.hintHour':
+    'Hourly mode allows up to 7 days (inclusive); picking a start date fills a 7-day window',
   'usage.rangeLabel': 'Range',
   'usage.custom.start': 'Start',
   'usage.custom.end': 'End',
@@ -235,9 +252,13 @@ const en: Dict = {
   'usage.noData': 'No data yet',
   'usage.chart.title': 'All accounts · daily tokens',
   'usage.chart.hint': 'Summed per day; hover for input and output',
+  'usage.chart.titleHour': 'All accounts · hourly tokens',
+  'usage.chart.hintHour':
+    'Summed per Ark hour (no timezone conversion); hover for input and output',
   'usage.chart.noUsage': 'No usage in this range (Ark only records actual calls).',
   'usage.byAccount': 'By account',
   'usage.clickHint': 'Select an account for daily detail',
+  'usage.clickHintHour': 'Select an account for hourly detail',
   'usage.noAccounts': 'No accounts configured yet',
   'usage.queryFailed': 'Query failed',
   'usage.row.noUsage': 'No usage in this range (Ark only records actual calls).',
@@ -329,6 +350,9 @@ const en: Dict = {
   'chart.title': 'Daily total tokens',
   'chart.days': '{n} days',
   'chart.tooltip': '{day} total {total} · input {input} · output {output} · requests {requests}',
+  'chart.titleHour': 'Hourly total tokens',
+  'chart.hours': '{n} hours',
+  'chart.ariaHour': 'Hourly token usage bar chart',
 };
 
 const DICTS: Record<Lang, Dict> = { zh, en };
