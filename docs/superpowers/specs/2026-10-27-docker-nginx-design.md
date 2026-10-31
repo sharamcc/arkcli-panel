@@ -1,7 +1,8 @@
 # arkcli-panel Docker 化与 nginx 反向代理设计
 
 - 日期：2026-10-27
-- 状态：待用户复核
+- 状态：已实施（代码已合入 `main`，实施偏差见第 14 节）
+- 更新：2026-10-31
 - 范围：仓库容器化（Dockerfile / compose / nginx）、写来源白名单可配置化、文档与 CI 调整
 - 不在范围：TLS、面板登录认证、GHCR 镜像分发、多架构镜像、nginx 直接托管静态资源
 
@@ -298,3 +299,12 @@ unit 与 `dist/` 均未改动，可立即回退。
 2. 进入实现计划（writing-plans），拆分为可验证的步骤。
 3. 编码与本地验证。
 4. 经用户确认后提交、推送，并在服务器执行迁移与远程验证。
+
+## 14. 实施记录（2026-10-31）
+
+实现与设计的两处偏差，以代码为准：
+
+1. **`trustProxy`**：未使用固定 `true`，改为 `process.env.PANEL_TRUSTED_PROXIES?.trim() || false`；compose 将 `PANEL_TRUSTED_PROXIES` 设为 `${PANEL_SUBNET:-172.28.0.0/24}`，直连运行未设置时只认 socket 地址。比原设计更窄的信任范围，见 `src/index.ts` 与 `compose.yaml`。
+2. **IPv4-mapped 归一化**：`isWriteAllowed` 不再手工剥离 `::ffff:` 前缀，由 Node `BlockList` 内部完成映射，判定语义不变（`test/write-allow.test.ts` 覆盖）。
+
+其余（目录结构、配置项语义、CI job、README 说明）按设计落地。
