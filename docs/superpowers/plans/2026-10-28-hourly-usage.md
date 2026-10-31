@@ -10,6 +10,8 @@
 
 **Git 规则（覆盖本计划提交步骤）：** 每个提交步骤执行前必须获得用户明确同意；禁止 `git add -A`；禁止 `--no-verify`；全部改动经 PR Squash 合入 `main`。
 
+**进度（2026-10-31）：** Task 1–6 已完成，随 PR #3（`a89a2af`）合入 `main`；`usage-keys.ts`、`compareUsageRows`、`DailyBars` 粒度参数、`UsageView` 接线与中英文案均已就位，CI 全绿。本地浏览器验证、线上数据一致性校验、部署与线上验收未在仓库留痕，对应步骤保持未勾选。
+
 ---
 
 ## 文件结构
@@ -34,7 +36,7 @@
 - Create: `web/src/usage-keys.ts`
 - Create: `test/usage-keys.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `test/usage-keys.test.ts`：
 
@@ -71,13 +73,13 @@ test('usageKey 缺失 Hour 按 00 处理', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npm test`
 
 Expected: FAIL，报 `Cannot find module` 指向 `web/src/usage-keys`。
 
-- [ ] **Step 3: 实现纯函数**
+- [x] **Step 3: 实现纯函数**
 
 创建 `web/src/usage-keys.ts`：
 
@@ -109,19 +111,19 @@ export function usageKey(row: UsageRowLike, granularity: Granularity): string {
 }
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npm test`
 
 Expected: PASS，测试总数由 16 增至 21。
 
-- [ ] **Step 5: 格式化与静态检查**
+- [x] **Step 5: 格式化与静态检查**
 
 Run: `npx prettier --write web/src/usage-keys.ts test/usage-keys.test.ts && npm run lint && npm run typecheck`
 
 Expected: 无报错。
 
-- [ ] **Step 6: 提交（需用户确认）**
+- [x] **Step 6: 提交（需用户确认）**
 
 ```bash
 git add web/src/usage-keys.ts test/usage-keys.test.ts
@@ -137,7 +139,7 @@ git commit -m "feat: 增加用量小时槽位纯函数"
 - Modify: `src/ark/usage.ts:89-91`
 - Create: `test/usage-sort.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `test/usage-sort.test.ts`：
 
@@ -178,13 +180,13 @@ test('缺失 Hour 视为 0', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
 Run: `npm test`
 
 Expected: FAIL，`compareUsageRows` 未导出。
 
-- [ ] **Step 3: 实现比较器并替换排序**
+- [x] **Step 3: 实现比较器并替换排序**
 
 `src/ark/usage.ts` 在 `fetchUsageRows` 之前新增：
 
@@ -208,19 +210,19 @@ rows.sort((a, b) => String(a.Day ?? '').localeCompare(String(b.Day ?? '')));
 rows.sort(compareUsageRows);
 ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
 Run: `npm test`
 
 Expected: PASS，全部用例通过。
 
-- [ ] **Step 5: 质量门**
+- [x] **Step 5: 质量门**
 
 Run: `npx prettier --write src/ark/usage.ts test/usage-sort.test.ts && npm run lint && npm run typecheck`
 
 Expected: 无报错。
 
-- [ ] **Step 6: 提交（需用户确认）**
+- [x] **Step 6: 提交（需用户确认）**
 
 ```bash
 git add src/ark/usage.ts test/usage-sort.test.ts
@@ -235,7 +237,7 @@ git commit -m "fix: 用量行按日期与小时稳定排序"
 
 - Modify: `web/src/i18n.tsx`
 
-- [ ] **Step 1: 中文文案**
+- [x] **Step 1: 中文文案**
 
 在中文词典的 `'usage.range.custom': '自定义',` 之后新增：
 
@@ -268,7 +270,7 @@ git commit -m "fix: 用量行按日期与小时稳定排序"
   'chart.ariaHour': '每小时 token 用量柱状图',
 ```
 
-- [ ] **Step 2: 英文文案**
+- [x] **Step 2: 英文文案**
 
 在英文词典的 `'usage.range.custom': 'Custom',` 之后新增：
 
@@ -301,13 +303,13 @@ git commit -m "fix: 用量行按日期与小时稳定排序"
   'chart.ariaHour': 'Hourly token usage bar chart',
 ```
 
-- [ ] **Step 3: 格式检查**
+- [x] **Step 3: 格式检查**
 
 Run: `npx prettier --write web/src/i18n.tsx && npm run lint && npm run typecheck`
 
 Expected: 无报错。
 
-- [ ] **Step 4: 提交（需用户确认）**
+- [x] **Step 4: 提交（需用户确认）**
 
 ```bash
 git add web/src/i18n.tsx
@@ -322,7 +324,7 @@ git commit -m "feat: 增加用量小时粒度文案"
 
 - Modify: `web/src/components/DailyBars.tsx`（整文件替换）
 
-- [ ] **Step 1: 替换组件实现**
+- [x] **Step 1: 替换组件实现**
 
 `web/src/components/DailyBars.tsx` 整体改为：
 
@@ -450,13 +452,13 @@ export function DailyBars({ rows, days, granularity = 'day' }: Props) {
 }
 ```
 
-- [ ] **Step 2: 编译检查**
+- [x] **Step 2: 编译检查**
 
 Run: `npm run typecheck && npm run lint`
 
 Expected: 无报错；`BreakdownTable` 的 `<DailyBars rows={ep.daily} days={days} />` 仍走默认 `day`。
 
-- [ ] **Step 3: 提交（需用户确认）**
+- [x] **Step 3: 提交（需用户确认）**
 
 ```bash
 git add web/src/components/DailyBars.tsx
@@ -471,7 +473,7 @@ git commit -m "feat: 柱状图支持逐小时粒度"
 
 - Modify: `web/src/views/UsageView.tsx`
 
-- [ ] **Step 1: 导入与常量**
+- [x] **Step 1: 导入与常量**
 
 把首部导入改为：
 
@@ -496,7 +498,7 @@ const MAX_SPAN_DAYS = 30;
 const MAX_SPAN_DAYS_HOUR = 6;
 ```
 
-- [ ] **Step 2: 状态与范围处理**
+- [x] **Step 2: 状态与范围处理**
 
 在 `const [range, setRange] = useState<RangeKey>('7d');` 之后新增：
 
@@ -534,7 +536,7 @@ const switchGranularity = (next: Granularity) => {
 };
 ```
 
-- [ ] **Step 3: 请求参数与轮询 key**
+- [x] **Step 3: 请求参数与轮询 key**
 
 `load` 中改为：
 
@@ -548,7 +550,7 @@ fetchUsage({ start, end, interval: granularity === 'hour' ? 'Hour' : 'Day' });
 usePolling(load, 300_000, `${start}|${end}|${granularity}|${tick}`);
 ```
 
-- [ ] **Step 4: 聚合与今日 KPI**
+- [x] **Step 4: 聚合与今日 KPI**
 
 把 `todayToken` 的 `find` 实现替换为按天求和：
 
@@ -613,7 +615,7 @@ const acctToday = rows
   .reduce((sum, r) => sum + Number(r.TotalTokens ?? 0), 0);
 ```
 
-- [ ] **Step 5: 范围选项与粒度控件**
+- [x] **Step 5: 范围选项与粒度控件**
 
 把 `ranges` 定义替换为：
 
@@ -657,7 +659,7 @@ const ranges: { id: RangeKey; label: string }[] =
 </div>
 ```
 
-- [ ] **Step 6: 图表与文案接线**
+- [x] **Step 6: 图表与文案接线**
 
 自定义范围提示改为：
 
@@ -696,13 +698,13 @@ const ranges: { id: RangeKey; label: string }[] =
 <DailyBars rows={rows} days={days} granularity={granularity} />
 ```
 
-- [ ] **Step 7: 质量门**
+- [x] **Step 7: 质量门**
 
 Run: `npx prettier --write web/src/views/UsageView.tsx && npm run lint && npm run typecheck && npm test && npm run build`
 
 Expected: 全部通过。
 
-- [ ] **Step 8: 提交（需用户确认）**
+- [x] **Step 8: 提交（需用户确认）**
 
 ```bash
 git add web/src/views/UsageView.tsx
@@ -718,7 +720,7 @@ git commit -m "feat: 用量页支持日与小时粒度切换"
 - Modify: `README.md:9`
 - Modify: `README.en.md` 对应行
 
-- [ ] **Step 1: 中文**
+- [x] **Step 1: 中文**
 
 `README.md` 第 9 行改为：
 
@@ -726,7 +728,7 @@ git commit -m "feat: 用量页支持日与小时粒度切换"
 - **用量**：账户级汇总、逐日 / 逐小时柱状图、按接入点 / 按模型拆分
 ```
 
-- [ ] **Step 2: 英文**
+- [x] **Step 2: 英文**
 
 `README.en.md` 对应条目改为：
 
@@ -734,13 +736,13 @@ git commit -m "feat: 用量页支持日与小时粒度切换"
 - **Usage**: per-account totals, daily/hourly bar charts, breakdown by endpoint and model
 ```
 
-- [ ] **Step 3: 格式检查**
+- [x] **Step 3: 格式检查**
 
 Run: `npx prettier --check README.md README.en.md`
 
 Expected: 通过。
 
-- [ ] **Step 4: 提交（需用户确认）**
+- [x] **Step 4: 提交（需用户确认）**
 
 ```bash
 git add README.md README.en.md
@@ -751,7 +753,7 @@ git commit -m "docs: 说明用量支持逐小时统计"
 
 ### Task 7: 端到端验证与部署
 
-- [ ] **Step 1: 本地质量门**
+- [x] **Step 1: 本地质量门**
 
 Run: `npm run lint && npm run format:check && npm run typecheck && npm test && npm run build`
 
@@ -783,7 +785,7 @@ ssh arkcli-panel 'cd /opt/arkcli-panel && \
 
 Expected: `day` 与 `hour` 数值相等（无数据时都为 `null`）。
 
-- [ ] **Step 4: 提交、PR、CI（需用户确认）**
+- [x] **Step 4: 提交、PR、CI（需用户确认）**
 
 ```bash
 git switch -c feat/hourly-usage

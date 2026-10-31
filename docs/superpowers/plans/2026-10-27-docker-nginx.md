@@ -10,6 +10,8 @@
 
 **Git 规则（覆盖本计划中的提交步骤）：** 每个 Commit 步骤执行前必须获得用户明确同意，禁止 `git add -A`，禁止 `--no-verify`。
 
+**进度（2026-10-31）：** Task 1–6 已完成并合入 `main`：`src/config/write-allow.ts`、`Dockerfile`、`.dockerignore`、`compose.yaml`、`deploy/nginx.conf`、`.env.example`、CI 的 docker job、README 中英文均已就位；lint / format / typecheck / test / build 与 `docker compose config` 由 CI 的 check + docker job 覆盖。实施偏差：`src/index.ts` 的 `trustProxy` 并非固定 `true`，而是取 `PANEL_TRUSTED_PROXIES`（compose 默认用 `PANEL_SUBNET`，即 `172.28.0.0/24`），未设置时直连只认 socket 地址。未勾选项为需 Docker 运行时或远程服务器的验证步骤，本仓库无执行留痕。
+
 ---
 
 ## 文件结构
@@ -40,7 +42,7 @@
 - Create: `test/write-allow.test.ts`
 - Modify: `package.json:21`（`test` 脚本）
 
-- [ ] **Step 1: 让测试脚本覆盖整个目录**
+- [x] **Step 1: 让测试脚本覆盖整个目录**
 
 `package.json` 中把：
 
@@ -54,7 +56,7 @@
 "test": "node --import tsx --test test/*.test.ts",
 ```
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
 创建 `test/write-allow.test.ts`：
 
@@ -100,13 +102,13 @@ test('非法 CIDR 抛错', () => {
 });
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 Run: `npm test`
 
 Expected: FAIL，报错包含 `Cannot find module` 与 `write-allow`。
 
-- [ ] **Step 4: 实现模块**
+- [x] **Step 4: 实现模块**
 
 创建 `src/config/write-allow.ts`：
 
@@ -140,19 +142,19 @@ export function isWriteAllowed(list: BlockList, ip: string): boolean {
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 Run: `npm test`
 
 Expected: PASS，全部用例通过（含既有 `breakdown-service` 用例）。
 
-- [ ] **Step 6: 格式化与静态检查**
+- [x] **Step 6: 格式化与静态检查**
 
 Run: `npx prettier --write src/config/write-allow.ts test/write-allow.test.ts package.json && npm run lint && npm run typecheck`
 
 Expected: 无报错。
 
-- [ ] **Step 7: 提交（需用户确认）**
+- [x] **Step 7: 提交（需用户确认）**
 
 ```bash
 git add src/config/write-allow.ts test/write-allow.test.ts package.json
@@ -169,7 +171,7 @@ git commit -m "feat: 写来源白名单支持 CIDR 配置"
 - Modify: `src/i18n/messages.ts:15-22`
 - Modify: `web/src/i18n.tsx:51`、`web/src/i18n.tsx:214`
 
-- [ ] **Step 1: 新增后端日志文案**
+- [x] **Step 1: 新增后端日志文案**
 
 在 `src/i18n/messages.ts` 的 `MESSAGES` 中，`server.webDistMissing` 之后插入：
 
@@ -180,7 +182,7 @@ git commit -m "feat: 写来源白名单支持 CIDR 配置"
   },
 ```
 
-- [ ] **Step 2: 替换写保护逻辑**
+- [x] **Step 2: 替换写保护逻辑**
 
 `src/index.ts` 顶部导入区新增：
 
@@ -216,7 +218,7 @@ app.addHook('onRequest', async (request, reply) => {
 });
 ```
 
-- [ ] **Step 3: 更新前端错误文案（两处）**
+- [x] **Step 3: 更新前端错误文案（两处）**
 
 `web/src/i18n.tsx` 第 51 行与第 214 行的 `'error.write_local_only'` 都改为：
 
@@ -251,13 +253,13 @@ PANEL_WRITE_CIDRS=bad-value node dist/index.js; echo "exit=$?"
 
 Expected: 输出 `exit=1`，日志含「写来源配置 PANEL_WRITE_CIDRS 非法」。
 
-- [ ] **Step 5: 质量门**
+- [x] **Step 5: 质量门**
 
 Run: `npx prettier --write src/index.ts src/i18n/messages.ts web/src/i18n.tsx && npm run lint && npm run typecheck && npm test`
 
 Expected: 全部通过。
 
-- [ ] **Step 6: 提交（需用户确认）**
+- [x] **Step 6: 提交（需用户确认）**
 
 ```bash
 git add src/index.ts src/i18n/messages.ts web/src/i18n.tsx
@@ -273,7 +275,7 @@ git commit -m "feat: 写保护改为可配置 CIDR 白名单并信任反代来�
 - Create: `Dockerfile`
 - Create: `.dockerignore`
 
-- [ ] **Step 1: 写 Dockerfile**
+- [x] **Step 1: 写 Dockerfile**
 
 ```dockerfile
 # syntax=docker/dockerfile:1
@@ -304,7 +306,7 @@ EXPOSE 3000
 CMD ["node", "dist/index.js"]
 ```
 
-- [ ] **Step 2: 写 `.dockerignore`**
+- [x] **Step 2: 写 `.dockerignore`**
 
 ```
 node_modules/
@@ -348,7 +350,7 @@ docker stop arkcli-smoke
 
 Expected: 两个 `200`。
 
-- [ ] **Step 6: 提交（需用户确认）**
+- [x] **Step 6: 提交（需用户确认）**
 
 ```bash
 git add Dockerfile .dockerignore
@@ -366,7 +368,7 @@ git commit -m "build: 增加多阶段 Dockerfile 与非 root 运行镜像"
 - Create: `.env.example`
 - Modify: `.gitignore:4-5`
 
-- [ ] **Step 1: 写 nginx 配置**
+- [x] **Step 1: 写 nginx 配置**
 
 创建 `deploy/nginx.conf`：
 
@@ -388,7 +390,7 @@ server {
 }
 ```
 
-- [ ] **Step 2: 写 compose 编排**
+- [x] **Step 2: 写 compose 编排**
 
 创建 `compose.yaml`：
 
@@ -422,7 +424,7 @@ services:
         condition: service_healthy
 ```
 
-- [ ] **Step 3: 写 `.env.example` 并放行该文件**
+- [x] **Step 3: 写 `.env.example` 并放行该文件**
 
 创建 `.env.example`：
 
@@ -468,7 +470,7 @@ Run: `docker compose down`
 
 Expected: 两个容器移除，`configs/` 保留。
 
-- [ ] **Step 7: 提交（需用户确认）**
+- [x] **Step 7: 提交（需用户确认）**
 
 ```bash
 git add deploy/nginx.conf compose.yaml .env.example .gitignore
@@ -484,7 +486,7 @@ git commit -m "feat: 增加 nginx 反代与 docker compose 一键启动"
 - Modify: `README.md:11-27`、`README.md:29-33`、`README.md:56`
 - Modify: `README.en.md:11-27`、`README.en.md:29-33`、`README.en.md:56`
 
-- [ ] **Step 1: 更新中文安全模型与特性说明**
+- [x] **Step 1: 更新中文安全模型与特性说明**
 
 `README.md` 第 11 行改为：
 
@@ -512,7 +514,7 @@ git commit -m "feat: 增加 nginx 反代与 docker compose 一键启动"
 - Docker Engine + compose plugin（使用 Docker 部署时；`docker compose version` 可用）
 ```
 
-- [ ] **Step 2: 插入中文 Docker 章节**
+- [x] **Step 2: 插入中文 Docker 章节**
 
 在 `## 部署到 Linux（systemd）` 之前插入：
 
@@ -555,7 +557,7 @@ sudo systemctl enable --now arkcli-panel
 
 并把 `## 部署到 Linux（systemd）` 标题改为 `## 部署到 Linux（systemd，无 Docker 环境备选）`。
 
-- [ ] **Step 3: 更新英文版本**
+- [x] **Step 3: 更新英文版本**
 
 `README.en.md` 第 11 行改为：
 
@@ -583,7 +585,7 @@ sudo systemctl enable --now arkcli-panel
 - Docker Engine + compose plugin (for Docker deployment; `docker compose version` must work)
 ```
 
-- [ ] **Step 4: 插入英文 Docker 章节**
+- [x] **Step 4: 插入英文 Docker 章节**
 
 在 `## Deploy on Linux (systemd)` 之前插入：
 
@@ -626,13 +628,13 @@ sudo systemctl enable --now arkcli-panel
 
 并把 `## Deploy on Linux (systemd)` 标题改为 `## Deploy on Linux (systemd, fallback without Docker)`。
 
-- [ ] **Step 5: 格式检查**
+- [x] **Step 5: 格式检查**
 
 Run: `npx prettier --check README.md README.en.md && git diff --check`
 
 Expected: 全部通过。
 
-- [ ] **Step 6: 提交（需用户确认）**
+- [x] **Step 6: 提交（需用户确认）**
 
 ```bash
 git add README.md README.en.md
@@ -647,7 +649,7 @@ git commit -m "docs: 增加 Docker 部署与写来源白名单说明"
 
 - Modify: `.github/workflows/ci.yml`（文件末尾追加 job）
 
-- [ ] **Step 1: 追加 docker job**
+- [x] **Step 1: 追加 docker job**
 
 在 `ci.yml` 末尾追加：
 
@@ -686,13 +688,13 @@ docker:
       run: docker compose down -v
 ```
 
-- [ ] **Step 2: 本地校验 YAML 与编排**
+- [x] **Step 2: 本地校验 YAML 与编排**
 
 Run: `npx prettier --check .github/workflows/ci.yml && docker compose config > /dev/null`
 
 Expected: 无报错。
 
-- [ ] **Step 3: 提交（需用户确认）**
+- [x] **Step 3: 提交（需用户确认）**
 
 ```bash
 git add .github/workflows/ci.yml
