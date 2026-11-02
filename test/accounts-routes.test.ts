@@ -128,3 +128,49 @@ test('loader 对非法账户名抛稳定错误码，且不触碰目录外文件'
   assert.equal(fs.existsSync(readmePath), true);
   assert.equal(fs.readFileSync(readmePath, 'utf-8'), readmeContent);
 });
+
+test('writeAccount 以 0600 落盘且不残留临时文件', () => {
+  const name = 'written-account';
+  loader.writeAccount({ ...goodAccount, name });
+
+  const target = path.join(accountsDir, `${name}.json`);
+  assert.equal(fs.existsSync(target), true);
+  assert.equal(fs.statSync(target).mode & 0o777, 0o600);
+  assert.equal(
+    fs.readdirSync(accountsDir).some((file) => file.endsWith('.tmp')),
+    false,
+  );
+});
+
+test('writeAccount 失败时清理临时文件', () => {
+  const target = path.join(accountsDir, 'broken-account.json');
+  fs.mkdirSync(target);
+
+  assert.throws(() => loader.writeAccount({ ...goodAccount, name: 'broken-account' }));
+  assert.equal(
+    fs
+      .readdirSync(accountsDir)
+      .some((file) => file.startsWith('broken-account.json.') && file.endsWith('.tmp')),
+    false,
+  );
+});
+
+test('cleanupAccountTempFiles 只清理明确的 tmp 命名', () => {
+  const keepName = 'keep-account';
+  const keepPath = path.join(accountsDir, `${keepName}.json`);
+  fs.writeFileSync(keepPath, `${JSON.stringify({ ...goodAccount, name: keepName }, null, 2)}\n`);
+
+  const legacyTmp = path.join(accountsDir, 'keep-account.json.tmp');
+  const uuidTmp = path.join(
+    accountsDir,
+    'keep-account.json.123e4567-e89b-12d3-a456-426614174000.tmp',
+  );
+  fs.writeFileSync(legacyTmp, 'temporary');
+  fs.writeFileSync(uuidTmp, 'temporary');
+
+  loader.cleanupAccountTempFiles();
+
+  assert.equal(fs.existsSync(legacyTmp), false);
+  assert.equal(fs.existsSync(uuidTmp), false);
+  assert.equal(fs.existsSync(keepPath), true);
+});

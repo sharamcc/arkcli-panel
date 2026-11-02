@@ -12,6 +12,10 @@ const MESSAGES: Record<string, Record<Lang, string>> = {
     zh: '[config] 解析 {file} 失败: {message}',
     en: '[config] failed to parse {file}: {message}',
   },
+  'config.tempCleanupFailed': {
+    zh: '[config] 清理临时文件 {file} 失败: {message}',
+    en: '[config] failed to remove temp file {file}: {message}',
+  },
   'server.webDistMissing': {
     zh: 'web/dist 不存在，仅提供 API。先运行 npm run build 生成前端产物。',
     en: 'web/dist is missing; serving API only. Run npm run build to generate the frontend.',

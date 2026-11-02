@@ -5,8 +5,8 @@ dist/
 .env.*
 !.env.example
 
-# 子账户凭证（含 AK/SK/API Key），禁止入库
-configs/accounts/*.json
+# 子账户凭证目录（含 AK/SK/API Key 与临时文件），整目录禁止入库
+configs/accounts/
 configs/settings.json
 !configs/accounts.example.json
 

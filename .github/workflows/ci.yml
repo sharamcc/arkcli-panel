@@ -31,8 +31,8 @@ jobs:
 
       - name: Guard against committed credentials
         run: |
-          if git ls-files | grep -E '^configs/accounts/.*\.json$'; then
-            echo "::error::configs/accounts/*.json 不得提交（含 AK/SK）"
+          if [ -n "$(git ls-files -- configs/accounts)" ]; then
+            echo "::error::configs/accounts/ 目录下不得跟踪任何文件（含 AK/SK 与临时文件）"
             exit 1
           fi
 

@@ -1,10 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { AccountConfig, AccountConfigSchema, AccountView, NAME_PATTERN } from '../types/account.js';
 import { AppError } from '../types/errors.js';
 import { tm } from '../i18n/messages.js';
 
 export const ACCOUNTS_DIR = path.resolve(process.cwd(), 'configs', 'accounts');
+
+// 兼容旧版固定 .tmp 与新版的 <uuid>.tmp，避免误删正常配置文件
+const ACCOUNT_TEMP_PATTERN =
+  /\.json(?:\.(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?\.tmp$/;
 
 function maskSecret(s: string): string {
   if (s.length <= 8) return '****';
@@ -27,6 +32,38 @@ function accountPath(name: string): string {
     throw new AppError('account.invalid_name', '账户名不合法');
   }
   return target;
+}
+
+// 启动时清理账户目录下的残留临时文件；只匹配明确的 tmp 命名，不动正常配置
+export function cleanupAccountTempFiles(): void {
+  if (!fs.existsSync(ACCOUNTS_DIR)) return;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(ACCOUNTS_DIR, { withFileTypes: true });
+  } catch (err) {
+    console.warn(
+      tm('config.tempCleanupFailed', {
+        file: ACCOUNTS_DIR,
+        message: (err as Error).message,
+      }),
+    );
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !ACCOUNT_TEMP_PATTERN.test(entry.name)) continue;
+    try {
+      fs.unlinkSync(path.join(ACCOUNTS_DIR, entry.name));
+    } catch (err) {
+      console.warn(
+        tm('config.tempCleanupFailed', {
+          file: entry.name,
+          message: (err as Error).message,
+        }),
+      );
+    }
+  }
 }
 
 // 解析单个账户文件；文件名与 name 不一致时视为无效
@@ -78,9 +115,21 @@ export function accountExists(name: string): boolean {
 export function writeAccount(account: AccountConfig): void {
   const target = accountPath(account.name);
   fs.mkdirSync(ACCOUNTS_DIR, { recursive: true });
-  const tmp = `${target}.tmp`;
-  fs.writeFileSync(tmp, `${JSON.stringify(account, null, 2)}\n`, 'utf-8');
-  fs.renameSync(tmp, target);
+  const tmp = `${target}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, `${JSON.stringify(account, null, 2)}\n`, {
+      encoding: 'utf-8',
+      mode: 0o600,
+    });
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      // 清理失败时保留原始写入错误
+    }
+    throw err;
+  }
 }
 
 export function deleteAccountFile(name: string): boolean {

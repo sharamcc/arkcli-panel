@@ -41,16 +41,17 @@ const zh: Dict = {
   'status.abnormal': '异常',
   'status.unknown': '清单中不存在',
 
-  'error.generic': 'Something went wrong',
-  'error.validation': 'Please check the input fields',
-  'error.internal': 'Server error',
-  'error.account_not_found': 'Account not found',
-  'error.account_exists': 'Account already exists',
-  'error.usage_too_long': 'Ark limits the range to under 31 days',
-  'error.usage_invalid_range': 'End date cannot be earlier than start date',
-  'error.write_local_only': 'Write operations are not allowed from this source',
-  'error.breakdown_fallback_limit': 'Too many endpoints to split without the endpoint column',
-  'error.not_found': 'Not found',
+  'error.generic': '操作失败，请稍后重试',
+  'error.validation': '请检查输入内容',
+  'error.internal': '服务器内部错误',
+  'error.account_not_found': '账户不存在',
+  'error.account_exists': '账户已存在',
+  'error.account_invalid_name': '账户名不合法',
+  'error.usage_too_long': 'Ark 限制查询区间必须小于 31 天',
+  'error.usage_invalid_range': '结束日期不能早于开始日期',
+  'error.write_local_only': '当前来源不允许写操作',
+  'error.breakdown_fallback_limit': '接入点数量过多，且缺少接入点维度，无法拆分',
+  'error.not_found': '资源不存在',
 
   'usage.title': '用量',
   'usage.subtitle': '数据来自 Ark，延迟 5–30 分钟',
@@ -219,6 +220,7 @@ const en: Dict = {
   'error.internal': 'Server error',
   'error.account_not_found': 'Account not found',
   'error.account_exists': 'Account already exists',
+  'error.account_invalid_name': 'Invalid account name',
   'error.usage_too_long': 'Ark limits the range to under 31 days',
   'error.usage_invalid_range': 'End date cannot be earlier than start date',
   'error.write_local_only': 'Write operations are not allowed from this source',
@@ -367,6 +369,23 @@ function detectLang(): Lang {
   return (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 
+// 后端 validation 错误的 error 字段是 fieldErrors 对象，转成可读文本，避免只剩一句泛化提示
+function formatFieldErrors(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const parts: string[] = [];
+  for (const [field, messages] of Object.entries(value as Record<string, unknown>)) {
+    if (Array.isArray(messages)) {
+      for (const message of messages) {
+        if (message !== undefined && message !== null) parts.push(`${field}: ${String(message)}`);
+      }
+    } else if (typeof messages === 'string') {
+      parts.push(`${field}: ${messages}`);
+    }
+  }
+  return parts.length > 0 ? parts.join('; ') : null;
+}
+
 type I18nContextValue = {
   lang: Lang;
   setLang: (lang: Lang) => void;
@@ -411,9 +430,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
     const te = (code: string | undefined, fallback: unknown) => {
       const key = code ? `error.${code.replaceAll('.', '_')}` : '';
-      if (key && dict[key]) return t(key);
+      const details = formatFieldErrors(fallback);
+      if (key && dict[key]) {
+        const message = t(key);
+        return details ? `${message}: ${details}` : message;
+      }
       if (lang === 'zh' && typeof fallback === 'string') return fallback;
-      return t('error.generic');
+      const generic = t('error.generic');
+      return details ? `${generic}: ${details}` : generic;
     };
 
     return { lang, setLang: setLangState, t, te };

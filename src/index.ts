@@ -9,6 +9,7 @@ import { endpointRoutes } from './routes/endpoints.js';
 import { modelRoutes } from './routes/models.js';
 import { settingsRoutes } from './routes/settings.js';
 import { tm } from './i18n/messages.js';
+import { cleanupAccountTempFiles } from './config/loader.js';
 import { buildWriteList, DEFAULT_WRITE_CIDRS, isWriteAllowed } from './config/write-allow.js';
 
 const app = Fastify({
@@ -29,6 +30,8 @@ const writeList = (() => {
     process.exit(1);
   }
 })();
+
+cleanupAccountTempFiles();
 
 app.addHook('onRequest', async (request, reply) => {
   if (request.method === 'GET' || request.method === 'HEAD') return;

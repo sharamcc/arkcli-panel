@@ -16,7 +16,9 @@ export async function modelRoutes(app: FastifyInstance) {
   app.get('/api/models', async (request, reply) => {
     const parsed = querySchema.safeParse(request.query);
     if (!parsed.success) {
-      return reply.status(400).send({ success: false, error: parsed.error.flatten().fieldErrors });
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: parsed.error.flatten().fieldErrors });
     }
     const q = parsed.data;
     try {
