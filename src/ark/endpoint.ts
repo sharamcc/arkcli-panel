@@ -1,5 +1,6 @@
 import { callArk } from './client.js';
 import { AccountConfig } from '../types/account.js';
+import { AppError } from '../types/errors.js';
 
 export type EndpointStatus = 'Running' | 'Scheduling' | 'Abnormal' | 'Stopped';
 export type EndpointModelType = 'FoundationModel' | 'CustomModel' | 'ServiceModel';
@@ -109,6 +110,8 @@ export async function getEndpoint(account: AccountConfig, id: string): Promise<E
     });
     return resp.Result!;
   } catch (err) {
+    // 超时必须原样抛出，不能被下面的 NotFound 判断误触发 DescribeEndpoint 回退
+    if (err instanceof AppError && err.code === 'ark.timeout') throw err;
     const msg = (err as Error).message;
     if (
       msg.includes('ActionNotFound') ||

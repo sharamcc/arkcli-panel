@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PerAccountUsage, UsageRow, fetchUsage, shiftDays, todayString } from '../api';
 import { usePolling } from '../hooks/usePolling';
 import { DailyBars } from '../components/DailyBars';
@@ -77,6 +77,15 @@ export function UsageView() {
   const currentKey = `${start}|${end}|${granularity}`;
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const requestSeq = useRef(0);
+  const activeRequest = useRef<{ key: string; controller: AbortController } | null>(null);
+
+  // 组件卸载时取消仍在进行的请求
+  useEffect(() => {
+    return () => {
+      activeRequest.current?.controller.abort();
+      activeRequest.current = null;
+    };
+  }, []);
 
   const switchGranularity = (next: Granularity) => {
     if (next === granularity) return;
@@ -93,37 +102,58 @@ export function UsageView() {
 
   const days = useMemo(() => daysBetween(start, end), [start, end]);
 
-  const load = () => {
+  const load = async (): Promise<void> => {
+    const requestKey = currentKey;
+    const active = activeRequest.current;
+
+    // 同一区间的请求仍在进行：跳过本次轮询/刷新，避免叠加
+    if (active && active.key === requestKey) return;
+
     const seq = requestSeq.current + 1;
     requestSeq.current = seq;
-    const requestKey = currentKey;
+
+    // 区间或粒度变化：先让旧请求失效，再 abort
+    if (active) active.controller.abort();
+
+    const controller = new AbortController();
+    activeRequest.current = { key: requestKey, controller };
+
     if (requestKey !== loadedKey) {
       setData([]);
       setError(null);
     }
     setLoading(true);
-    fetchUsage({ start, end, interval: granularity === 'hour' ? 'Hour' : 'Day' })
-      .then((res) => {
-        if (seq !== requestSeq.current) return;
-        if (res.success && res.data) {
-          setData(res.data);
-          setError(null);
-        } else {
-          setData([]);
-          setError(te(res.code, res.error));
-        }
-        setUpdatedAt(
-          new Date().toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }),
-        );
-      })
-      .catch((err: Error) => {
-        if (seq === requestSeq.current) setError(err.message);
-      })
-      .finally(() => {
-        if (seq !== requestSeq.current) return;
+
+    try {
+      const res = await fetchUsage({
+        start,
+        end,
+        interval: granularity === 'hour' ? 'Hour' : 'Day',
+        signal: controller.signal,
+      });
+      if (seq !== requestSeq.current) return;
+
+      if (res.success && res.data) {
+        setData(res.data);
+        setError(null);
+      } else {
+        setData([]);
+        setError(te(res.code, res.error));
+      }
+      setUpdatedAt(
+        new Date().toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }),
+      );
+    } catch (err) {
+      if (seq === requestSeq.current) setError((err as Error).message);
+    } finally {
+      if (activeRequest.current?.controller === controller) {
+        activeRequest.current = null;
+      }
+      if (seq === requestSeq.current) {
         setLoadedKey(requestKey);
         setLoading(false);
-      });
+      }
+    }
   };
 
   usePolling(load, 300_000, `${start}|${end}|${granularity}|${tick}`);

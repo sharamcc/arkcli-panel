@@ -11,25 +11,34 @@ import { AccountView } from '../types/account.js';
 // 并发上限，避免对 Ark API 造成压力
 const CONCURRENCY_LIMIT = 5;
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// 分批并发 + allSettled：单账户失败只写回自己的 error，不影响同批其他账户
 async function runWithConcurrency<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
   limit = CONCURRENCY_LIMIT,
 ): Promise<{ result: R | null; error: string | null }[]> {
-  const results: { result: R | null; error: string | null }[] = [];
-  let cursor = 0;
-  const workers = Math.min(limit, items.length);
-  const run = async () => {
-    while (cursor < items.length) {
-      const idx = cursor++;
-      try {
-        results[idx] = { result: await fn(items[idx]), error: null };
-      } catch (err) {
-        results[idx] = { result: null, error: (err as Error).message };
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: workers }, () => run()));
+  const results: { result: R | null; error: string | null }[] = new Array(items.length);
+  const batchSize = Math.max(1, limit);
+
+  for (let offset = 0; offset < items.length; offset += batchSize) {
+    const batch = items.slice(offset, offset + batchSize);
+    const settled = await Promise.allSettled(
+      batch.map((item) => Promise.resolve().then(() => fn(item))),
+    );
+
+    settled.forEach((outcome, index) => {
+      const target = offset + index;
+      results[target] =
+        outcome.status === 'fulfilled'
+          ? { result: outcome.value, error: null }
+          : { result: null, error: errorMessage(outcome.reason) };
+    });
+  }
+
   return results;
 }
 

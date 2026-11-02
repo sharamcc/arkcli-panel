@@ -51,6 +51,7 @@ export type BreakdownParams = {
 
 // 回退路径要逐个接入点查询，限制上限避免请求数失控
 const FALLBACK_MAX_ENDPOINTS = 20;
+const FALLBACK_CONCURRENCY = 5;
 
 function emptyTotals(): Totals {
   return { totalTokens: 0, inputTokens: 0, outputTokens: 0, cacheTokensHit: 0, reqCnt: 0 };
@@ -222,15 +223,31 @@ export async function getUsageBreakdown(
     }
     derived = 'per-endpoint';
     byEndpoint = new Map();
-    for (const ep of items) {
-      const rows = await getInferenceUsage(account, {
-        ...baseParams,
-        filters: [{ Key: 'ModelEndpoint', Values: [ep.Id] }],
-      });
+
+    // 按索引写回，保证 items 顺序稳定；并发上限避免 20 次 Ark 查询串行拖慢
+    const rowsByIndex = new Array<UsageRow[]>(items.length);
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= items.length) return;
+        const ep = items[index];
+        rowsByIndex[index] = await getInferenceUsage(account, {
+          ...baseParams,
+          filters: [{ Key: 'ModelEndpoint', Values: [ep.Id] }],
+        });
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(FALLBACK_CONCURRENCY, items.length) }, () => worker()),
+    );
+
+    items.forEach((ep, index) => {
+      const rows = rowsByIndex[index] ?? [];
       const bucket = { totals: emptyTotals(), rows };
       for (const row of rows) addRow(bucket.totals, row);
       byEndpoint.set(ep.Id, bucket);
-    }
+    });
   }
 
   return assembleBreakdown({

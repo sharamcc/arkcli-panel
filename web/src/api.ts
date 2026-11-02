@@ -82,28 +82,78 @@ export type ApiEnvelope<T> = {
   error?: unknown;
 };
 
-async function request<T>(path: string, init?: RequestInit): Promise<ApiEnvelope<T>> {
-  const resp = await fetch(path, {
-    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
-    ...init,
-  });
-  const json = (await resp
-    .json()
-    .catch(() => ({ success: false, error: `HTTP ${resp.status}` }))) as ApiEnvelope<T>;
-  return json;
+const REQUEST_TIMEOUT_MS = 120_000;
+
+type RequestOptions = RequestInit & { timeoutMs?: number };
+
+async function request<T>(path: string, init?: RequestOptions): Promise<ApiEnvelope<T>> {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, signal: externalSignal, ...fetchInit } = init ?? {};
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const onAbort = () => controller.abort();
+
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener('abort', onAbort, { once: true });
+  }
+
+  try {
+    const resp = await fetch(path, {
+      ...fetchInit,
+      headers:
+        fetchInit.headers ?? (fetchInit.body ? { 'Content-Type': 'application/json' } : undefined),
+      signal: controller.signal,
+    });
+
+    if (resp.status === 408 || resp.status === 504) {
+      return { success: false, code: 'request_timeout', error: '请求超时' };
+    }
+
+    let json: ApiEnvelope<T>;
+    try {
+      json = (await resp.json()) as ApiEnvelope<T>;
+    } catch {
+      if (timedOut) {
+        return { success: false, code: 'request_timeout', error: '请求超时' };
+      }
+      if (externalSignal?.aborted) {
+        return { success: false, code: 'request_aborted', error: '请求已取消' };
+      }
+      return { success: false, error: `HTTP ${resp.status}` };
+    }
+    return json;
+  } catch (err) {
+    if (timedOut) return { success: false, code: 'request_timeout', error: '请求超时' };
+    if (externalSignal?.aborted) {
+      return { success: false, code: 'request_aborted', error: '请求已取消' };
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', onAbort);
+  }
 }
 
 export function listAccounts() {
   return request<AccountView[]>('/api/accounts');
 }
 
-export function fetchUsage(params: { start: string; end: string; interval?: 'Day' | 'Hour' }) {
+export function fetchUsage(params: {
+  start: string;
+  end: string;
+  interval?: 'Day' | 'Hour';
+  signal?: AbortSignal;
+}) {
   const q = new URLSearchParams({
     start: params.start,
     end: params.end,
     interval: params.interval ?? 'Day',
   });
-  return request<PerAccountUsage[]>(`/api/usage?${q.toString()}`);
+  return request<PerAccountUsage[]>(`/api/usage?${q.toString()}`, { signal: params.signal });
 }
 
 export function fetchEndpoints(params: { account?: string; status?: string; name?: string }) {
