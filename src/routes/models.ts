@@ -1,9 +1,10 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getModelsAcrossAccounts } from '../service/account-service.js';
+import { AccountNameSchema } from '../types/account.js';
 
 const querySchema = z.object({
-  account: z.string().optional(),
+  account: AccountNameSchema.optional(),
   name: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(100),

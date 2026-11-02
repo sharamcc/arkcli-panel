@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getEndpointsAcrossAccounts } from '../service/account-service.js';
+import { AccountNameQuerySchema, AccountNameSchema } from '../types/account.js';
 import { getEndpoint } from '../ark/endpoint.js';
 import { loadAccounts } from '../config/loader.js';
 import { errorCodeOf } from '../types/errors.js';
 
 const listQuerySchema = z.object({
-  account: z.string().optional(),
+  account: AccountNameSchema.optional(),
   project: z.string().optional(),
   status: z.string().optional(),
   name: z.string().optional(),
@@ -44,16 +45,19 @@ export async function endpointRoutes(app: FastifyInstance) {
   });
 
   // 详情：必须指定 account（因为 AK/SK 按账户隔离）
-  app.get<{ Params: { id: string }; Querystring: { account: string } }>(
+  app.get<{ Params: { id: string }; Querystring: { account?: string } }>(
     '/api/endpoints/:id',
     async (request, reply) => {
       const { id } = request.params;
-      const { account } = request.query;
-      if (!account) {
-        return reply
-          .status(400)
-          .send({ success: false, code: 'validation', error: 'query.account 必填' });
+      const queryParsed = AccountNameQuerySchema.safeParse(request.query);
+      if (!queryParsed.success) {
+        return reply.status(400).send({
+          success: false,
+          code: 'validation',
+          error: queryParsed.error.flatten().fieldErrors,
+        });
       }
+      const { account } = queryParsed.data;
       const acct = loadAccounts().find((a) => a.name === account);
       if (!acct) {
         return reply.status(404).send({

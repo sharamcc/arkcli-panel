@@ -1,8 +1,20 @@
 import { FastifyInstance } from 'fastify';
 import { accountExists, deleteAccountFile, getAccount, writeAccount } from '../config/loader.js';
 import { listAccountViews } from '../service/account-service.js';
-import { CreateAccountSchema, UpdateAccountSchema } from '../types/account.js';
+import {
+  AccountNameParamsSchema,
+  CreateAccountSchema,
+  UpdateAccountSchema,
+} from '../types/account.js';
+import { AppError } from '../types/errors.js';
 import { listEndpoints } from '../ark/endpoint.js';
+
+// 账户名来自 URL，先按统一 schema 校验，避免拼出账户目录之外的路径
+function parseNameParam(name: string): { ok: true; name: string } | { ok: false; error: unknown } {
+  const parsed = AccountNameParamsSchema.safeParse({ name });
+  if (!parsed.success) return { ok: false, error: parsed.error.flatten().fieldErrors };
+  return { ok: true, name: parsed.data.name };
+}
 
 export async function accountRoutes(app: FastifyInstance) {
   // 账户列表（含停用账户，仅脱敏信息）
@@ -39,7 +51,13 @@ export async function accountRoutes(app: FastifyInstance) {
 
   // 更新账户：name 不可改；ak/sk 留空表示保持原值
   app.put<{ Params: { name: string } }>('/api/accounts/:name', async (request, reply) => {
-    const { name } = request.params;
+    const nameParsed = parseNameParam(request.params.name);
+    if (!nameParsed.ok) {
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: nameParsed.error });
+    }
+    const { name } = nameParsed;
     const existing = getAccount(name);
     if (!existing) {
       return reply
@@ -68,18 +86,42 @@ export async function accountRoutes(app: FastifyInstance) {
 
   // 删除账户
   app.delete<{ Params: { name: string } }>('/api/accounts/:name', async (request, reply) => {
-    const { name } = request.params;
-    if (!deleteAccountFile(name)) {
+    const nameParsed = parseNameParam(request.params.name);
+    if (!nameParsed.ok) {
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: nameParsed.error });
+    }
+    const { name } = nameParsed;
+    if (!getAccount(name)) {
       return reply
         .status(404)
         .send({ success: false, code: 'account.not_found', error: `账户 "${name}" 不存在` });
     }
-    return { success: true, data: { name } };
+    try {
+      if (!deleteAccountFile(name)) {
+        return reply
+          .status(404)
+          .send({ success: false, code: 'account.not_found', error: `账户 "${name}" 不存在` });
+      }
+      return { success: true, data: { name } };
+    } catch (err) {
+      if (err instanceof AppError) {
+        return reply.status(400).send({ success: false, code: err.code, error: err.message });
+      }
+      throw err;
+    }
   });
 
   // 验证凭证与项目权限：用 ListEndpoints(PageSize=1) 探测，不消耗 token
   app.get<{ Params: { name: string } }>('/api/accounts/:name/verify', async (request, reply) => {
-    const { name } = request.params;
+    const nameParsed = parseNameParam(request.params.name);
+    if (!nameParsed.ok) {
+      return reply
+        .status(400)
+        .send({ success: false, code: 'validation', error: nameParsed.error });
+    }
+    const { name } = nameParsed;
     const account = getAccount(name);
     if (!account) {
       return reply

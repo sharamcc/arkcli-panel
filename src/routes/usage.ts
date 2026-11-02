@@ -1,11 +1,12 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getUsageAcrossAccounts } from '../service/account-service.js';
+import { AccountNameSchema } from '../types/account.js';
 import { QueryInterval } from '../ark/usage.js';
 import { errorCodeOf } from '../types/errors.js';
 
 const querySchema = z.object({
-  account: z.string().optional(),
+  account: AccountNameSchema.optional(),
   start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'start 须为 YYYY-MM-DD'),
   end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'end 须为 YYYY-MM-DD'),
   interval: z.enum(['Hour', 'Day']).default('Day'),

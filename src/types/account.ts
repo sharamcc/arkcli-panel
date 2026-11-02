@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
-const NAME_PATTERN = /^[a-zA-Z0-9-]+$/;
+export const NAME_PATTERN = /^[a-zA-Z0-9-]+$/;
+
+// 账户名同时用于配置文件名与 URL 参数，统一在这里约束
+export const AccountNameSchema = z
+  .string()
+  .min(1)
+  .regex(NAME_PATTERN, '名称只允许字母、数字与短横线');
+
+export const AccountNameParamsSchema = z.object({ name: AccountNameSchema });
+
+export const AccountNameQuerySchema = z.object({ account: AccountNameSchema });
 
 // 子账户配置：每个子账户一个独立 JSON 文件，文件名须与 name 一致
 export const AccountConfigSchema = z.object({
@@ -19,7 +29,7 @@ export type AccountConfig = z.infer<typeof AccountConfigSchema>;
 
 // 新建账户的入参
 export const CreateAccountSchema = z.object({
-  name: z.string().min(1).max(64).regex(NAME_PATTERN, '名称只允许字母、数字与短横线'),
+  name: AccountNameSchema.max(64),
   label: z.string().optional(),
   ak: z.string().min(1, 'AK 不能为空'),
   sk: z.string().min(1, 'SK 不能为空'),
