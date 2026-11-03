@@ -27,16 +27,23 @@ const hangingFetch: typeof fetch = (_input, init) =>
   });
 
 test('Ark 超时转换为稳定错误码，abort 后不产生未处理 rejection', async () => {
-  await assert.rejects(
-    callArk({
-      account,
-      action: 'ListEndpoints',
-      body: {},
-      timeoutMs: 20,
-      fetchImpl: hangingFetch,
-    }),
-    (err: unknown) => err instanceof AppError && err.code === 'ark.timeout',
-  );
+  // AbortSignal.timeout 的定时器是 unref 的；仅剩 pending promise 时
+  // node:test 可能先判定事件循环已清空并取消测试。这里用 ref 定时器保持事件循环。
+  const keepAlive = setTimeout(() => {}, 200);
+  try {
+    await assert.rejects(
+      callArk({
+        account,
+        action: 'ListEndpoints',
+        body: {},
+        timeoutMs: 20,
+        fetchImpl: hangingFetch,
+      }),
+      (err: unknown) => err instanceof AppError && err.code === 'ark.timeout',
+    );
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test('Ark 网关 HTTP 504 也映射为 ark.timeout', async () => {
