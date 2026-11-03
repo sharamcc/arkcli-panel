@@ -1,5 +1,11 @@
 import { FastifyInstance } from 'fastify';
-import { accountExists, deleteAccountFile, getAccount, writeAccount } from '../config/loader.js';
+import {
+  accountExists,
+  deleteAccountFile,
+  getAccount,
+  projectNameOf,
+  writeAccount,
+} from '../config/loader.js';
 import { listAccountViews } from '../service/account-service.js';
 import {
   AccountNameParamsSchema,
@@ -71,15 +77,16 @@ export async function accountRoutes(app: FastifyInstance) {
         .send({ success: false, code: 'validation', error: parsed.error.flatten().fieldErrors });
     }
     const input = parsed.data;
+    const body = (request.body ?? {}) as Record<string, unknown>;
     writeAccount({
       name,
-      label: input.label ?? existing.label,
+      label: Object.hasOwn(body, 'label') ? input.label : existing.label,
       ak: input.ak ? input.ak : existing.ak,
       sk: input.sk ? input.sk : existing.sk,
-      project: input.project !== undefined ? input.project || undefined : existing.project,
+      project: Object.hasOwn(body, 'project') ? input.project : existing.project,
       region: input.region || existing.region,
       enabled: input.enabled ?? existing.enabled,
-      note: input.note !== undefined ? input.note : existing.note,
+      note: Object.hasOwn(body, 'note') ? input.note : existing.note,
     });
     return { success: true, data: { name } };
   });
@@ -130,7 +137,7 @@ export async function accountRoutes(app: FastifyInstance) {
     }
     try {
       // 必须带上项目名：授权是按项目授予的，不传会落到 project/* 被拒
-      const project = account.project ?? account.name;
+      const project = projectNameOf(account);
       const result = await listEndpoints(account, { pageSize: 1, projectName: project });
       return {
         success: true,
@@ -141,7 +148,7 @@ export async function accountRoutes(app: FastifyInstance) {
         success: true,
         data: {
           ok: false,
-          project: account.project ?? account.name,
+          project: projectNameOf(account),
           error: (err as Error).message,
         },
       };

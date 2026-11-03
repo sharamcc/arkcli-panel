@@ -4,6 +4,7 @@ import { getUsageBreakdown } from '../service/breakdown-service.js';
 import { AccountNameSchema } from '../types/account.js';
 import { QueryInterval } from '../ark/usage.js';
 import { errorCodeOf } from '../types/errors.js';
+import { parseDateRange } from '../utils/date-range.js';
 
 const querySchema = z.object({
   account: AccountNameSchema,
@@ -22,19 +23,9 @@ export async function usageBreakdownRoutes(app: FastifyInstance) {
     }
     const q = parsed.data;
 
-    const startMs = Date.parse(`${q.start}T00:00:00Z`);
-    const endMs = Date.parse(`${q.end}T00:00:00Z`);
-    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
-      return reply
-        .status(400)
-        .send({ success: false, code: 'usage.invalid_range', error: '结束日期不能早于开始日期' });
-    }
-    if (Math.round((endMs - startMs) / 86_400_000) > 30) {
-      return reply.status(400).send({
-        success: false,
-        code: 'usage.too_long',
-        error: 'Ark 限制查询区间必须小于 31 天，请缩短日期范围',
-      });
+    const range = parseDateRange(q.start, q.end, q.interval);
+    if (!range.ok) {
+      return reply.status(400).send({ success: false, code: range.code, error: range.message });
     }
 
     try {
@@ -45,9 +36,14 @@ export async function usageBreakdownRoutes(app: FastifyInstance) {
       });
       return { success: true, data };
     } catch (err) {
-      return reply
-        .status(500)
-        .send({ success: false, code: errorCodeOf(err), error: (err as Error).message });
+      const code = errorCodeOf(err);
+      if (code === 'account.not_found') {
+        return reply.status(404).send({ success: false, code, error: '账户不存在' });
+      }
+      if (code === 'breakdown.fallback_limit') {
+        return reply.status(400).send({ success: false, code, error: '接入点数量过多，无法拆分' });
+      }
+      return reply.status(500).send({ success: false, code: 'internal', error: '服务器内部错误' });
     }
   });
 }

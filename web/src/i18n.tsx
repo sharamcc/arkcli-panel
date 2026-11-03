@@ -47,9 +47,13 @@ const zh: Dict = {
   'error.account_not_found': '账户不存在',
   'error.account_exists': '账户已存在',
   'error.account_invalid_name': '账户名不合法',
+  'error.account_disabled': '账户已停用',
   'error.request_timeout': '请求超时，请稍后重试',
   'error.request_aborted': '请求已取消',
   'error.ark_timeout': 'Ark 请求超时，请稍后重试',
+  'error.network': '网络请求失败，请稍后重试',
+  'error.usage_invalid_date': '日期不合法，请使用有效的 YYYY-MM-DD 日期',
+  'error.usage_hour_too_long': '小时模式最多查询 7 天，请缩短日期范围',
   'error.usage_too_long': 'Ark 限制查询区间必须小于 31 天',
   'error.usage_invalid_range': '结束日期不能早于开始日期',
   'error.write_local_only': '当前来源不允许写操作',
@@ -88,6 +92,8 @@ const zh: Dict = {
   'usage.clickHint': '点击账户查看逐日明细',
   'usage.clickHintHour': '点击账户查看逐小时用量，明细表仍按日',
   'usage.noAccounts': '还没有配置任何账户',
+  'usage.noEnabledAccounts': '已有账户，但全部处于停用状态',
+  'usage.accountsLoadFailed': '账户状态加载失败，请稍后重试',
   'usage.queryFailed': '查询失败',
   'usage.row.noUsage': '该区间没有用量记录（Ark 只在有调用时产生数据）。',
   'usage.failed': '{n} 个账户未取到数据，展开可查看原因。',
@@ -224,9 +230,13 @@ const en: Dict = {
   'error.account_not_found': 'Account not found',
   'error.account_exists': 'Account already exists',
   'error.account_invalid_name': 'Invalid account name',
+  'error.account_disabled': 'Account is disabled',
   'error.request_timeout': 'Request timed out; please try again',
   'error.request_aborted': 'Request cancelled',
   'error.ark_timeout': 'Ark request timed out; please try again',
+  'error.network': 'Network request failed; please try again',
+  'error.usage_invalid_date': 'Invalid date; use a valid YYYY-MM-DD date',
+  'error.usage_hour_too_long': 'Hourly mode allows up to 7 days; shorten the range',
   'error.usage_too_long': 'Ark limits the range to under 31 days',
   'error.usage_invalid_range': 'End date cannot be earlier than start date',
   'error.write_local_only': 'Write operations are not allowed from this source',
@@ -268,6 +278,8 @@ const en: Dict = {
   'usage.clickHint': 'Select an account for daily detail',
   'usage.clickHintHour': 'Select an account for hourly usage; the detail table stays daily',
   'usage.noAccounts': 'No accounts configured yet',
+  'usage.noEnabledAccounts': 'Accounts exist, but all are disabled',
+  'usage.accountsLoadFailed': 'Failed to load account status; please try again',
   'usage.queryFailed': 'Query failed',
   'usage.row.noUsage': 'No usage in this range (Ark only records actual calls).',
   'usage.failed': '{n} account(s) returned no data; expand for details.',
@@ -463,10 +475,43 @@ export function formatTokens(value: number, lang: Lang): string {
   return value.toLocaleString(lang === 'zh' ? 'zh-CN' : 'en-US');
 }
 
+function formatEnglishShort(value: number): string {
+  const kRounded = Number((value / 1e3).toFixed(1));
+  if (kRounded < 1000) return `~${kRounded.toFixed(1)}K`;
+
+  const m = value / 1e6;
+  const mRounded = Number(m.toFixed(1));
+  if (mRounded < 1000) {
+    const useInteger = mRounded >= 100;
+    const mValue = Number(m.toFixed(useInteger ? 0 : 1));
+    return `~${mValue.toFixed(useInteger ? 0 : 1)}M`;
+  }
+
+  const bRounded = Number((value / 1e9).toFixed(1));
+  if (bRounded < 1000) return `~${bRounded.toFixed(1)}B`;
+
+  return `~${Number((value / 1e12).toFixed(1)).toFixed(1)}T`;
+}
+
+function formatChineseShort(value: number): string {
+  const wanRounded = Number((value / 1e4).toFixed(1));
+  if (wanRounded < 10_000) return `约 ${wanRounded.toFixed(1)} 万`;
+
+  const yiRounded = Number((value / 1e8).toFixed(2));
+  if (yiRounded < 10_000) return `约 ${yiRounded.toFixed(2)} 亿`;
+
+  return `约 ${Number((value / 1e12).toFixed(2)).toFixed(2)} 万亿`;
+}
+
 export function formatShort(value: number, lang: Lang): string {
-  if (value >= 1e8)
-    return lang === 'zh' ? `约 ${(value / 1e8).toFixed(2)} 亿` : `~${(value / 1e8).toFixed(2)}B`;
-  if (value >= 1e4)
-    return lang === 'zh' ? `约 ${(value / 1e4).toFixed(1)} 万` : `~${(value / 1e4).toFixed(1)}K`;
-  return '';
+  if (value === 0) return '';
+  if (value < 0) return formatTokens(value, lang);
+
+  if (lang === 'zh') {
+    if (value < 1e4) return formatTokens(value, lang);
+    return formatChineseShort(value);
+  }
+
+  if (value < 1e4) return formatTokens(value, lang);
+  return formatEnglishShort(value);
 }

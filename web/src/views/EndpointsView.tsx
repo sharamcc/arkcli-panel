@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { CopyButton } from '../components/CopyButton';
 import {
   AccountView,
@@ -18,28 +18,52 @@ export function EndpointsView() {
   const [name, setName] = useState('');
   const [results, setResults] = useState<PerAccountEndpoints[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const requestSeq = useRef(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, Record<string, unknown>>>({});
-  const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  const detailRequestSeq = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    listAccounts().then((res) => {
-      if (res.success && res.data) setAccounts(res.data);
-    });
+    listAccounts()
+      .then((res) => {
+        if (res.success && res.data) setAccounts(res.data);
+      })
+      .catch(() => {
+        // 账户下拉加载失败不影响接入点查询，主错误由 load 展示
+      });
   }, []);
 
   const load = () => {
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
     setLoading(true);
+    setError(null);
+
     fetchEndpoints({
       account: account || undefined,
       status: status || undefined,
       name: name || undefined,
     })
       .then((res) => {
-        if (res.success && res.data) setResults(res.data);
-        else setResults([]);
+        if (seq !== requestSeq.current) return;
+        if (res.success && res.data) {
+          setResults(res.data);
+        } else {
+          setResults([]);
+          setError(te(res.code, res.error));
+        }
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (seq === requestSeq.current) {
+          setResults([]);
+          setError(t('error.network'));
+        }
+      })
+      .finally(() => {
+        if (seq === requestSeq.current) setLoading(false);
+      });
   };
 
   // 首次进入时加载；之后的筛选由「查询」按钮触发，筛选变化不应自动请求
@@ -59,13 +83,28 @@ export function EndpointsView() {
       return;
     }
     setExpanded(key);
-    setDetailError(null);
-    if (!details[key]) {
+
+    if (details[key]) return;
+
+    const seq = (detailRequestSeq.current[key] ?? 0) + 1;
+    detailRequestSeq.current[key] = seq;
+
+    try {
       const res = await fetchEndpointDetail(acct, id);
+      if (detailRequestSeq.current[key] !== seq) return;
       if (res.success && res.data) {
         setDetails((prev) => ({ ...prev, [key]: res.data as Record<string, unknown> }));
+        setDetailErrors((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
       } else {
-        setDetailError(te(res.code, res.error));
+        setDetailErrors((prev) => ({ ...prev, [key]: te(res.code, res.error) }));
+      }
+    } catch {
+      if (detailRequestSeq.current[key] === seq) {
+        setDetailErrors((prev) => ({ ...prev, [key]: t('error.network') }));
       }
     }
   };
@@ -140,12 +179,13 @@ export function EndpointsView() {
           </div>
         </div>
 
+        {error && <p className="notice">{error}</p>}
         {failed.length > 0 && (
           <p className="notice">{failed.map((f) => `${f.account}: ${f.error}`).join('; ')}</p>
         )}
 
         {loading && <p className="state">{t('common.loading')}</p>}
-        {!loading && rows.length === 0 && failed.length === 0 && (
+        {!loading && !error && rows.length === 0 && failed.length === 0 && (
           <p className="state">{t('endpoints.empty')}</p>
         )}
 
@@ -211,9 +251,9 @@ export function EndpointsView() {
                       {isOpen && (
                         <tr key={`${key}-detail`}>
                           <td colSpan={7} style={{ padding: 0 }}>
-                            {detailError ? (
+                            {detailErrors[key] ? (
                               <p className="error-line" style={{ padding: '12px 24px' }}>
-                                {detailError}
+                                {detailErrors[key]}
                               </p>
                             ) : (
                               <dl className="detail-grid">

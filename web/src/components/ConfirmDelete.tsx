@@ -20,13 +20,20 @@ export function ConfirmDelete({ name, onClose, onDeleted }: Props) {
       return;
     }
     setBusy(true);
-    const res = await deleteAccount(name);
-    setBusy(false);
-    if (res.success) {
-      onDeleted();
-      onClose();
-    } else {
-      setError(te(res.code, res.error));
+    setError(null);
+
+    try {
+      const res = await deleteAccount(name);
+      if (res.success) {
+        onDeleted();
+        onClose();
+      } else {
+        setError(te(res.code, res.error));
+      }
+    } catch {
+      setError(t('error.network'));
+    } finally {
+      setBusy(false);
     }
   };
 

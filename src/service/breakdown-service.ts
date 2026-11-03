@@ -1,4 +1,4 @@
-import { getAccount } from '../config/loader.js';
+import { getAccount, projectNameOf } from '../config/loader.js';
 import {
   getInferenceUsage,
   getUsageWithEndpointColumn,
@@ -192,7 +192,7 @@ export async function getUsageBreakdown(
   if (!account) {
     throw new AppError('account.not_found', `账户 "${accountName}" 不存在`);
   }
-  const project = account.project ?? account.name;
+  const project = projectNameOf(account);
 
   // 左表：全部接入点（含零用量），用于补齐与展示模型名
   const endpointList = await listEndpoints(account, { pageSize: 100, projectName: project });

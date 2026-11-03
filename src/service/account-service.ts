@@ -1,4 +1,4 @@
-import { loadAccounts, loadAllAccounts, toAccountView } from '../config/loader.js';
+import { loadAccounts, loadAllAccounts, projectNameOf, toAccountView } from '../config/loader.js';
 import { getInferenceUsage, GetInferenceUsageParams, UsageRow } from '../ark/usage.js';
 import { listEndpoints, ListEndpointsParams, ListEndpointItem } from '../ark/endpoint.js';
 import {
@@ -61,11 +61,11 @@ export async function getUsageAcrossAccounts(
   const targets = accountName ? accounts.filter((a) => a.name === accountName) : accounts;
 
   const results = await runWithConcurrency(targets, async (a) =>
-    getInferenceUsage(a, { ...params, projectName: params.projectName ?? a.project ?? a.name }),
+    getInferenceUsage(a, { ...params, projectName: params.projectName || projectNameOf(a) }),
   );
   return targets.map((a, i) => ({
     account: a.name,
-    project: a.project ?? a.name,
+    project: projectNameOf(a),
     usage: results[i].result,
     error: results[i].error,
   }));
@@ -86,7 +86,7 @@ export async function getEndpointsAcrossAccounts(
   const targets = accountName ? accounts.filter((a) => a.name === accountName) : accounts;
 
   const results = await runWithConcurrency(targets, async (a) =>
-    listEndpoints(a, { ...params, projectName: params.projectName ?? a.project ?? a.name }),
+    listEndpoints(a, { ...params, projectName: params.projectName || projectNameOf(a) }),
   );
   return targets.map((a, i) => ({
     account: a.name,

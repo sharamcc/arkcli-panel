@@ -37,26 +37,33 @@ export function AccountForm({ mode, initial, onClose, onSaved }: Props) {
     }
 
     const input: AccountInput = {
-      label: label || undefined,
+      label,
       ak: ak || undefined,
       sk: sk || undefined,
-      project: project || undefined,
-      note: note || undefined,
+      project,
+      note,
       enabled,
     };
 
     setSaving(true);
-    const res =
-      mode === 'create'
-        ? await createAccount({ ...input, name })
-        : await updateAccount(initial!.name, input);
-    setSaving(false);
+    setError(null);
 
-    if (res.success) {
-      onSaved();
-      onClose();
-    } else {
-      setError(te(res.code, res.error) || t('form.err.save'));
+    try {
+      const res =
+        mode === 'create'
+          ? await createAccount({ ...input, name })
+          : await updateAccount(initial!.name, input);
+
+      if (res.success) {
+        onSaved();
+        onClose();
+      } else {
+        setError(te(res.code, res.error) || t('form.err.save'));
+      }
+    } catch {
+      setError(t('error.network'));
+    } finally {
+      setSaving(false);
     }
   };
 

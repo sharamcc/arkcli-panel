@@ -138,8 +138,8 @@ async function request<T>(path: string, init?: RequestOptions): Promise<ApiEnvel
   }
 }
 
-export function listAccounts() {
-  return request<AccountView[]>('/api/accounts');
+export function listAccounts(signal?: AbortSignal) {
+  return request<AccountView[]>('/api/accounts', { signal });
 }
 
 export function fetchUsage(params: {
@@ -230,7 +230,17 @@ export function todayString(): string {
 }
 
 export function shiftDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00`);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return date;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+    return date;
+  }
+
   d.setDate(d.getDate() + days);
   const offset = d.getTimezoneOffset();
   const local = new Date(d.getTime() - offset * 60_000);

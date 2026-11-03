@@ -7,9 +7,24 @@ import Fastify from 'fastify';
 
 const originalCwd = process.cwd();
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arkcli-panel-query-'));
-fs.mkdirSync(path.join(tmpRoot, 'configs', 'accounts'), { recursive: true });
+const accountsDir = path.join(tmpRoot, 'configs', 'accounts');
+fs.mkdirSync(accountsDir, { recursive: true });
+fs.writeFileSync(
+  path.join(accountsDir, 'disabled-account.json'),
+  `${JSON.stringify(
+    {
+      name: 'disabled-account',
+      ak: 'AKTEST',
+      sk: 'SKTEST',
+      region: 'ap-southeast-1',
+      enabled: false,
+    },
+    null,
+    2,
+  )}\n`,
+);
 
-// 路由模块在导入时按 process.cwd() 计算 ACCOUNTS_DIR，测试使用空的临时账户目录
+// 路由模块在导入时按 process.cwd() 计算 ACCOUNTS_DIR，测试使用临时账户目录
 process.chdir(tmpRoot);
 
 const { usageRoutes } = await import('../src/routes/usage.js');
@@ -56,8 +71,27 @@ test('/api/usage、/api/endpoints、/api/models 拒绝非法 account 查询参�
   }
 });
 
-test('合法但与现有账户无关的 account 保持原有 200 空数据行为', async () => {
-  for (const route of routes) {
+test('/api/usage 对不存在的 account 返回 404', async () => {
+  const res = await app.inject({ method: 'GET', url: routes[0]('missing-account') });
+
+  assert.equal(res.statusCode, 404);
+  const body = res.json() as { success?: boolean; code?: string };
+  assert.equal(body.success, false);
+  assert.equal(body.code, 'account.not_found');
+});
+
+test('/api/usage 对已存在但停用的 account 返回 404 account.disabled', async () => {
+  const res = await app.inject({ method: 'GET', url: routes[0]('disabled-account') });
+
+  assert.equal(res.statusCode, 404);
+  const body = res.json() as { success?: boolean; code?: string };
+  assert.equal(body.success, false);
+  assert.equal(body.code, 'account.disabled');
+});
+
+test('/api/endpoints、/api/models 对合法但无关的 account 保持 200 空数据', async () => {
+  // 有意为之：列表接口把未知 account 当作空结果，不返回 404
+  for (const route of routes.slice(1)) {
     const res = await app.inject({ method: 'GET', url: route('missing-account') });
     assert.equal(res.statusCode, 200, `${route('missing-account')} 应返回 200`);
 

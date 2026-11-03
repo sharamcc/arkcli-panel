@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { AccountView, listAccounts, verifyAccount } from '../api';
 import { AccountForm } from '../components/AccountForm';
 import { ConfirmDelete } from '../components/ConfirmDelete';
@@ -10,45 +10,69 @@ export function AccountsView() {
   const { t, te } = useI18n();
   const [accounts, setAccounts] = useState<AccountView[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const requestSeq = useRef(0);
   const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null);
   const [editing, setEditing] = useState<AccountView | null>(null);
   const [deleting, setDeleting] = useState<AccountView | null>(null);
   const [verify, setVerify] = useState<Record<string, VerifyState>>({});
 
   const load = () => {
+    const seq = requestSeq.current + 1;
+    requestSeq.current = seq;
     setLoading(true);
+    setError(null);
+
     listAccounts()
       .then((res) => {
-        if (res.success && res.data) setAccounts(res.data);
+        if (seq !== requestSeq.current) return;
+        if (res.success && res.data) {
+          setAccounts(res.data);
+        } else {
+          setError(te(res.code, res.error));
+        }
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (seq === requestSeq.current) setError(t('error.network'));
+      })
+      .finally(() => {
+        if (seq === requestSeq.current) setLoading(false);
+      });
   };
 
-  useEffect(load, []);
+  useEffect(load, [t, te]);
 
   const runVerify = async (name: string) => {
     setVerify((prev) => ({
       ...prev,
       [name]: { status: 'checking', message: t('accounts.verify.checking') },
     }));
-    const res = await verifyAccount(name);
-    if (res.success && res.data) {
+
+    try {
+      const res = await verifyAccount(name);
+      if (res.success && res.data) {
+        setVerify((prev) => ({
+          ...prev,
+          [name]: res.data!.ok
+            ? {
+                status: 'ok',
+                message: t('accounts.verify.ok', {
+                  project: res.data!.project,
+                  total: res.data!.total ?? 0,
+                }),
+              }
+            : { status: 'fail', message: t('accounts.verify.fail') },
+        }));
+      } else {
+        setVerify((prev) => ({
+          ...prev,
+          [name]: { status: 'fail', message: te(res.code, res.error) },
+        }));
+      }
+    } catch {
       setVerify((prev) => ({
         ...prev,
-        [name]: res.data!.ok
-          ? {
-              status: 'ok',
-              message: t('accounts.verify.ok', {
-                project: res.data!.project,
-                total: res.data!.total ?? 0,
-              }),
-            }
-          : { status: 'fail', message: t('accounts.verify.fail') },
-      }));
-    } else {
-      setVerify((prev) => ({
-        ...prev,
-        [name]: { status: 'fail', message: te(res.code, res.error) },
+        [name]: { status: 'fail', message: t('error.network') },
       }));
     }
   };
@@ -69,7 +93,10 @@ export function AccountsView() {
 
       <section className="panel" aria-label={t('accounts.title')} style={{ marginTop: 0 }}>
         {loading && accounts.length === 0 && <p className="state">{t('common.loading')}</p>}
-        {!loading && accounts.length === 0 && <p className="state">{t('accounts.empty')}</p>}
+        {error && <p className="notice">{error}</p>}
+        {!loading && !error && accounts.length === 0 && (
+          <p className="state">{t('accounts.empty')}</p>
+        )}
 
         {accounts.length > 0 && (
           <div className="table-wrap">

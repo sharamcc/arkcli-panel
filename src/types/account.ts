@@ -12,6 +12,15 @@ export const AccountNameParamsSchema = z.object({ name: AccountNameSchema });
 
 export const AccountNameQuerySchema = z.object({ account: AccountNameSchema });
 
+// 空 project 一律归一为 undefined，读取旧配置时也能落到账户名
+const ProjectSchema = z
+  .string()
+  .transform((value) => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  })
+  .optional();
+
 // 子账户配置：每个子账户一个独立 JSON 文件，文件名须与 name 一致
 export const AccountConfigSchema = z.object({
   name: z.string().regex(NAME_PATTERN),
@@ -19,7 +28,7 @@ export const AccountConfigSchema = z.object({
   ak: z.string().min(1),
   sk: z.string().min(1),
   // Ark 项目名，留空时等于账户名
-  project: z.string().optional(),
+  project: ProjectSchema,
   region: z.string().default('ap-southeast-1'),
   enabled: z.boolean().default(true),
   note: z.string().optional(),
@@ -33,7 +42,7 @@ export const CreateAccountSchema = z.object({
   label: z.string().optional(),
   ak: z.string().min(1, 'AK 不能为空'),
   sk: z.string().min(1, 'SK 不能为空'),
-  project: z.string().optional(),
+  project: ProjectSchema,
   region: z.string().optional(),
   enabled: z.boolean().optional(),
   note: z.string().optional(),
@@ -46,7 +55,7 @@ export const UpdateAccountSchema = z.object({
   label: z.string().optional(),
   ak: z.string().optional(),
   sk: z.string().optional(),
-  project: z.string().optional(),
+  project: ProjectSchema,
   region: z.string().optional(),
   enabled: z.boolean().optional(),
   note: z.string().optional(),

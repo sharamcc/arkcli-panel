@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PerAccountUsage, UsageRow, fetchUsage, shiftDays, todayString } from '../api';
+import {
+  AccountView,
+  PerAccountUsage,
+  UsageRow,
+  fetchUsage,
+  listAccounts,
+  shiftDays,
+  todayString,
+} from '../api';
 import { usePolling } from '../hooks/usePolling';
 import { DailyBars } from '../components/DailyBars';
 import { BreakdownTable } from '../components/BreakdownTable';
@@ -40,8 +48,11 @@ export function UsageView() {
   const [customStart, setCustomStart] = useState(shiftDays(today, -6));
   const [customEnd, setCustomEnd] = useState(today);
   const [data, setData] = useState<PerAccountUsage[]>([]);
+  const [accounts, setAccounts] = useState<AccountView[] | null>(null);
+  const [accountsError, setAccountsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -51,6 +62,7 @@ export function UsageView() {
 
   const handleStartChange = (value: string) => {
     setCustomStart(value);
+    if (!value) return;
     const wanted = shiftDays(value, spanLimit);
     const cappedEnd = wanted > today ? today : wanted;
     setCustomEnd(cappedEnd < value ? value : cappedEnd);
@@ -58,6 +70,7 @@ export function UsageView() {
 
   const handleEndChange = (value: string) => {
     setCustomEnd(value);
+    if (!value) return;
     const diff = dayDiff(customStart, value);
     if (diff < 0) {
       setCustomStart(value);
@@ -84,6 +97,31 @@ export function UsageView() {
     return () => {
       activeRequest.current?.controller.abort();
       activeRequest.current = null;
+    };
+  }, []);
+
+  // 账户列表用于区分“没有账户”和“有账户但全部停用”
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    listAccounts(controller.signal)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data) {
+          setAccounts(res.data);
+          setAccountsError(false);
+        } else {
+          setAccountsError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAccountsError(true);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -121,6 +159,7 @@ export function UsageView() {
     if (requestKey !== loadedKey) {
       setData([]);
       setError(null);
+      setLoadFailed(false);
     }
     setLoading(true);
 
@@ -136,15 +175,19 @@ export function UsageView() {
       if (res.success && res.data) {
         setData(res.data);
         setError(null);
+        setLoadFailed(false);
       } else {
-        setData([]);
         setError(te(res.code, res.error));
+        setLoadFailed(true);
       }
       setUpdatedAt(
         new Date().toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour12: false }),
       );
-    } catch (err) {
-      if (seq === requestSeq.current) setError((err as Error).message);
+    } catch {
+      if (seq === requestSeq.current) {
+        setError(t('error.network'));
+        setLoadFailed(true);
+      }
     } finally {
       if (activeRequest.current?.controller === controller) {
         activeRequest.current = null;
@@ -160,6 +203,15 @@ export function UsageView() {
 
   const okAccounts = data.filter((d) => !d.error);
   const failedAccounts = data.filter((d) => d.error);
+  const emptyAccountsMessage = accountsError
+    ? t('usage.accountsLoadFailed')
+    : accounts === null
+      ? t('common.loading')
+      : accounts.length === 0
+        ? t('usage.noAccounts')
+        : !accounts.some((item) => item.enabled)
+          ? t('usage.noEnabledAccounts')
+          : t('usage.noData');
 
   const todayToken = okAccounts.reduce(
     (acc, a) =>
@@ -213,7 +265,7 @@ export function UsageView() {
 
   const stale = loadedKey !== currentKey;
   const showPlaceholder = stale || (loading && data.length === 0);
-  const value = (n: number) => (showPlaceholder ? '—' : formatTokens(n, lang));
+  const value = (n: number) => (showPlaceholder || loadFailed ? '—' : formatTokens(n, lang));
 
   const ranges: { id: RangeKey; label: string }[] =
     granularity === 'day'
@@ -323,7 +375,9 @@ export function UsageView() {
           <div className="kpi-note">
             {showPlaceholder
               ? t('usage.querying')
-              : formatShort(todayToken, lang) || t('usage.noData')}
+              : loadFailed
+                ? t('usage.queryFailed')
+                : formatShort(todayToken, lang) || t('usage.noData')}
           </div>
         </div>
         <div className="kpi">
@@ -336,18 +390,22 @@ export function UsageView() {
           <div className="kpi-note">
             {showPlaceholder
               ? t('usage.querying')
-              : formatShort(rangeToken, lang) || t('usage.noData')}
+              : loadFailed
+                ? t('usage.queryFailed')
+                : formatShort(rangeToken, lang) || t('usage.noData')}
           </div>
         </div>
         <div className="kpi">
           <div className="kpi-label">{t('usage.kpi.accounts')}</div>
           <div className="kpi-value">
-            {showPlaceholder ? '—' : `${okAccounts.length}/${data.length}`}
+            {showPlaceholder || loadFailed ? '—' : `${okAccounts.length}/${data.length}`}
           </div>
           <div className="kpi-note">
             {showPlaceholder
               ? t('usage.querying')
-              : t('usage.kpi.requests', { n: formatTokens(rangeReq, lang) })}
+              : loadFailed
+                ? t('usage.queryFailed')
+                : t('usage.kpi.requests', { n: formatTokens(rangeReq, lang) })}
           </div>
         </div>
       </section>
@@ -363,6 +421,8 @@ export function UsageView() {
         </div>
         {showPlaceholder ? (
           <p className="state">{t('common.loading')}</p>
+        ) : loadFailed ? (
+          <p className="state">{t('usage.queryFailed')}</p>
         ) : (
           <>
             <div className="chart-holder">
@@ -382,9 +442,13 @@ export function UsageView() {
         </div>
 
         {showPlaceholder && <p className="state">{t('common.loading')}</p>}
-        {!showPlaceholder && data.length === 0 && <p className="state">{t('usage.noAccounts')}</p>}
+        {!showPlaceholder && loadFailed && <p className="state">{t('usage.queryFailed')}</p>}
+        {!showPlaceholder && !error && data.length === 0 && (
+          <p className="state">{emptyAccountsMessage}</p>
+        )}
 
         {!showPlaceholder &&
+          !loadFailed &&
           data.map((item) => {
             const rows = item.usage ?? [];
             const acctToday = rows

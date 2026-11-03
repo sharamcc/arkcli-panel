@@ -107,6 +107,11 @@ export function getAccount(name: string): AccountConfig | undefined {
   return loadAllAccounts().find((a) => a.name === name);
 }
 
+// project 留空时统一回落到账户名，查询/验证/展示都使用这一个入口
+export function projectNameOf(account: AccountConfig): string {
+  return account.project || account.name;
+}
+
 export function accountExists(name: string): boolean {
   return fs.existsSync(accountPath(name));
 }
@@ -144,7 +149,7 @@ export function toAccountView(a: AccountConfig): AccountView {
     name: a.name,
     label: a.label,
     ak_masked: maskSecret(a.ak),
-    project: a.project ?? a.name,
+    project: projectNameOf(a),
     region: a.region,
     enabled: a.enabled,
     note: a.note,

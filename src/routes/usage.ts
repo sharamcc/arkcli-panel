@@ -1,9 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { getAccount } from '../config/loader.js';
 import { getUsageAcrossAccounts } from '../service/account-service.js';
 import { AccountNameSchema } from '../types/account.js';
 import { QueryInterval } from '../ark/usage.js';
 import { errorCodeOf } from '../types/errors.js';
+import { parseDateRange } from '../utils/date-range.js';
 
 const querySchema = z.object({
   account: AccountNameSchema.optional(),
@@ -23,20 +25,25 @@ export async function usageRoutes(app: FastifyInstance) {
     }
     const q = parsed.data;
 
-    // Ark 限制查询区间必须小于 31 天
-    const startMs = Date.parse(`${q.start}T00:00:00Z`);
-    const endMs = Date.parse(`${q.end}T00:00:00Z`);
-    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
-      return reply
-        .status(400)
-        .send({ success: false, code: 'usage.invalid_range', error: '结束日期不能早于开始日期' });
+    // 日期必须真实存在，且日/小时模式分别受 31 天、7 天跨度限制
+    const range = parseDateRange(q.start, q.end, q.interval);
+    if (!range.ok) {
+      return reply.status(400).send({ success: false, code: range.code, error: range.message });
     }
-    const days = Math.round((endMs - startMs) / 86_400_000);
-    if (days > 30) {
-      return reply.status(400).send({
+
+    const account = q.account ? getAccount(q.account) : undefined;
+    if (q.account && !account) {
+      return reply.status(404).send({
         success: false,
-        code: 'usage.too_long',
-        error: 'Ark 限制查询区间必须小于 31 天，请缩短日期范围',
+        code: 'account.not_found',
+        error: `账户 "${q.account}" 不存在`,
+      });
+    }
+    if (account && !account.enabled) {
+      return reply.status(404).send({
+        success: false,
+        code: 'account.disabled',
+        error: `账户 "${account.name}" 已停用`,
       });
     }
 
